@@ -1,0 +1,18 @@
+﻿* Encoding: UTF-8.
+*T0.
+EXECUTE.
+
+
+DELETE VARIABLES
+social_acuity_domain_valid
+dtt_average_correct_responses
+dtt_total_commission_errors.
+
+* calculate Dummy variables for education .
+
+RECODE education_Verhage (MISSING=SYSMIS) (Lowest thru 4=1) (ELSE=0) INTO education_low.
+VARIABLE LABELS  education_low 'Dummy education low'.
+EXECUTE.
+
+COMPUTE motor_speed_domain=ftt_right_taps_average + ftt_left_taps_average.
+EXECUTE.

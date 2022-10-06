@@ -1,0 +1,266 @@
+﻿* Encoding: UTF-8.
+*T0
+
+DELETE VARIABLES 
+social_acuity_domain_valid
+social_acuity_domain_raw
+social_acuity_domain_ss
+social_acuity_domain_pr
+reasoning_domain_valid
+reasoning_domain_raw
+reasoning_domain_ss
+reasoning_domain_pr
+working_memory_domain_valid
+working_memory_domain_raw
+working_memory_domain_ss
+working_memory_domain_pr
+sustained_attention_domain_valid
+sustained_attention_domain_raw
+sustained_attention_domain_ss
+sustained_attention_domain_pr
+poet_selected
+poet_completed
+poet_valid
+poet_correct
+poet_average_correct_rt
+poet_omission_errors
+poet_commission_errors
+poet_correct_positive_emotions
+poet_average_correct_positive_rt
+poet_correct_negative_emotions
+poet_average_correct_negative_rt
+nvrt_selected
+nvrt_completed
+nvrt_valid
+nvrt_correct
+nvrt_average_correct_rt
+nvrt_commission_errors
+nvrt_omission_errors
+fpcpt_selected
+fpcpt_completed
+fpcpt_valid
+fpcpt_part1_average_correct_rt
+fpcpt_part2_correct_responses
+fpcpt_part2_average_correct_rt
+fpcpt_part2_incorrect_responses
+fpcpt_part2_average_incorrect_rt
+fpcpt_part2_omission_errors
+fpcpt_part3_correct_responses
+fpcpt_part3_average_correct_rt
+fpcpt_part3_incorrect_responses
+fpcpt_part3_average_incorrect_rt
+fpcpt_part3_omission_errors
+fpcpt_part4_correct_responses
+fpcpt_part4_average_correct_rt
+fpcpt_part4_incorrect_responses
+fpcpt_part4_average_incorrect_rt
+fpcpt_part4_omission_errors
+dtt_selected
+dtt_completed
+dtt_level1_percent_in_box
+dtt_level1_correct_responses
+dtt_level1_correct_average_rt
+dtt_level1_commission_errors
+dtt_level1_omission_errors
+dtt_level2_percent_in_box
+dtt_level2_correct_responses
+dtt_level2_correct_average_rt
+dtt_level2_commission_errors
+dtt_level2_omission_errors
+dtt_level3_percent_in_box
+dtt_level3_correct_responses
+dtt_level3_correct_average_rt
+dtt_level3_commission_errors
+dtt_level3_omission_errors
+dtt_level4_percent_in_box
+dtt_level4_correct_responses
+dtt_level4_correct_average_rt
+dtt_level4_commission_errors
+dtt_level4_omission_errors
+dtt_level5_percent_in_box
+dtt_level5_correct_responses
+dtt_level5_correct_average_rt
+dtt_level5_commission_errors
+dtt_level5_omission_errors
+dtt_level6_percent_in_box
+dtt_level6_correct_responses
+dtt_level6_correct_average_rt
+dtt_level6_commission_errors
+dtt_level6_omission_errors
+dtt_level7_percent_in_box
+dtt_level7_correct_responses
+dtt_level7_correct_average_rt
+dtt_level7_commission_errors
+dtt_level7_omission_errors
+dtt_level8_percent_in_box
+dtt_level8_correct_responses
+dtt_level8_correct_average_rt
+dtt_level8_commission_errors
+dtt_level8_omission_errors
+dtt_total_percent_in_box
+dtt_average_percent_in_box
+dtt_total_correct_responses
+dtt_average_correct_responses
+dtt_total_commission_errors.
+
+
+* get VARIABLES education_Verhage, age_T0 and sex from other files than from CNS VS export data.
+
+
+* calculate Dummy variables for education .
+
+RECODE education_Verhage (MISSING=SYSMIS) (Lowest thru 4=1) (ELSE=0) INTO education_low.
+VARIABLE LABELS  education_low 'Dummy education low'.
+EXECUTE.
+RECODE education_Verhage (MISSING=SYSMIS) (5=1) (ELSE=0) INTO education_mid.
+VARIABLE LABELS  education_mid 'Dummy education middle'.
+EXECUTE.
+RECODE education_Verhage (MISSING=SYSMIS) (6=1) (7=1) (ELSE=0) INTO education_high.
+VARIABLE LABELS  education_high 'Dummy education high'.
+EXECUTE.
+
+
+* compute new variables motor speed and stroop interferentie.
+
+COMPUTE motor_speed_domain=ftt_right_taps_average + ftt_left_taps_average.
+EXECUTE.
+
+COMPUTE stroop_interferentie=(stroop_stroop_reaction_time_correct - 
+    stroop_simple_reaction_time) / stroop_simple_reaction_time.
+EXECUTE.
+
+
+
+*** NOW FIRST RENAME EACH VARIABLE TO 'T0_***_raw'. NB: SOME VARIABLES DO ALREADY END WITH _RAW; 
+THESE ONLY NEED THE ADDITION OF T0 AT THE BEGINNING OF THE VARIABLE NAME***.
+
+*** THEN:.
+
+
+*Calculation Z-scores CNS VS raw domain scores.
+
+COMPUTE Predsc_psychomsp_T0=219.00 + (-0.865 * age_T0) + (0.224 * education_low + 5.563 * education_high) + (-7.443 * sex).
+EXECUTE.
+COMPUTE Zsc_psychomsp_T0=(T0_psychomotor_speed_domain_raw - Predsc_psychomsp_T0) / 16.578.
+EXECUTE.
+
+COMPUTE Predsc_reactime_T0= 590.027 + (1.654* age_T0) + (-11.433 * education_low + -20.506 * education_high) + (-20.712* sex).
+EXECUTE.
+COMPUTE Zsc_reactime_T0=((T0_reaction_time_domain_raw - Predsc_reactime_T0) / 69.028) *-1.
+EXECUTE.
+
+COMPUTE Predsc_complexatt_T0= 5.070 + (0.031 * age_T0) + (2.600 * education_low + -1.303 * education_high) + (0.654 * sex).
+EXECUTE.
+COMPUTE Zsc_complexatt_T0=((T0_complex_attention_domain_raw - Predsc_complexatt_T0) / 4.127)*-1.
+EXECUTE.
+
+COMPUTE Predsc_cognflex_T0= 58.508 + (-0.284 * age_T0) + (-6.159 * education_low + 5.050 * education_high) + (-1.630 * sex).
+EXECUTE.
+COMPUTE Zsc_cognflex_T0=(T0_cognitive_flexibility_domain_raw - Predsc_cognflex_T0) / 10.205.
+EXECUTE.
+
+COMPUTE Predsc_procspeed_T0= 77.376 + (-0.518 * age_T0) + (-3.157 * education_low  + 3.989 * education_high) + (2.423 * sex).
+EXECUTE.
+COMPUTE Zsc_procspeed_T0=(T0_processing_speed_domain_raw - Predsc_procspeed_T0) / 8.883.
+EXECUTE.
+
+COMPUTE Predsc_verbalmem_T0=50.925 + (-0.025* age_T0) + ( - 0.213* education_low + 1.487* education_high) + (1.767 * sex).
+EXECUTE.
+COMPUTE Zsc_verbalmem_T0=(T0_verbal_memory_domain_raw - Predsc_verbalmem_T0) / 4.465.
+EXECUTE.
+
+COMPUTE Predsc_vismem_T0= 47.33 + (-0.06 * age_T0) + (-0.92 * education_low + 1.79 * education_high) + (0.83 * sex).
+EXECUTE.
+COMPUTE Zsc_vismem_T0=(T0_visual_memory_domain_raw - Predsc_vismem_T0) / 4.12.
+EXECUTE.
+
+
+* Define impairment CNS VS domains.
+
+COMPUTE IMP_psychomspeedT0=Zsc_psychomsp_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE IMP_reactimeT0=Zsc_reactime_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE IMP_complexattT0=Zsc_complexatt_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE IMP_cogflexT0=Zsc_cognflex_T0<=  - 1.5.
+EXECUTE.
+COMPUTE IMP_procspeedT0=Zsc_procspeed_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE IMP_verbalmemT0=Zsc_verbalmem_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE IMP_visualmemT0=Zsc_vismem_T0 <=  - 1.5.
+EXECUTE.
+
+
+*Calculation Z-scores CNS VS raw test scores.
+
+*memory en proc speed test variables similar to domain scores.
+
+COMPUTE Predsc_motorspeed_T0=140.247 + (-0.333* age_T0) + ( 2.380* education_low + 0.968 * education_high) + (-9.868 * sex).
+EXECUTE.
+COMPUTE Zsc_motorspeed_T0=(T0_motor_speed_domain_raw - Predsc_motorspeed_T0) / 11.749.
+EXECUTE.
+
+COMPUTE Predsc_EF_T0= 55.692 + (-0.259* age_T0) + ( -5.827 * education_low + 6.654 * education_high) + (1.112 * sex).
+EXECUTE.
+COMPUTE Zsc_EF_T0=(T0_executive_functioning_domain_raw - Predsc_EF_T0) / 12.564.
+EXECUTE.
+
+COMPUTE Predsc_CPT_reactietijd_T0=370.119 + (0.957* age_T0) + ( 5.239 * education_low + 7.146 * education_high) + (-0.228 * sex).
+EXECUTE.
+COMPUTE Zsc_CPT_reactietijd_T0=((T0_cpt_choice_reaction_time_correct_raw - Predsc_CPT_reactietijd_T0) / 38.555)*-1.
+EXECUTE.
+
+
+
+* Define impairment tests CNS VS.
+
+
+COMPUTE T0_IMP_motorspeed= Zsc_motorspeed_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE T0_IMP_EF= Zsc_EF_T0 <=  - 1.5.
+EXECUTE.
+COMPUTE T0_IMP_CPT= Zsc_CPT_reactietijd_T0 <=  - 1.5.
+EXECUTE.
+
+
+
+***get raw scores of digit span and fluency test.
+
+* Calculation Z-scores DIGIT SPAN.
+
+COMPUTE Predsc_DSFW_T0=11.369 + (-0.056* age_T0) + (-0.143 * education_low + 1.241 * education_high) + (0.489 * sex).
+EXECUTE.
+COMPUTE Zsc_DSFW_T0=(T0_DS_forward - Predsc_DSFW_T0) / 1.916.
+EXECUTE.
+
+COMPUTE Predsc_DSBW_T0=9.281 + (-0.050* age_T0) + (-0.753 * education_low + 0.498 * education_high) + (0.596 * sex).
+EXECUTE.
+COMPUTE Zsc_DSBW_T0=(T0_DS_backward- Predsc_DSBW_T0) / 1.818.
+EXECUTE.
+
+
+* Define impairment DIGIT SPAN.
+
+COMPUTE IMP_DSFWT0 = Zsc_DSFW_T0 =<-1.5
+EXECUTE. 
+COMPUTE IMP_DSBWT0 = Zsc_DSBW_T0 =<-1.5
+EXECUTE.
+
+
+* Calculation Z-score FLUENCY test; see https://link.springer.com/article/10.1007/BF03078128?shared-article-renderer
+
+
+COMPUTE fluency_Tscore_T0= T0_fluency_raw + 25 - 2.5*education_Verhage.
+VARIABLE LABELS  fluency_Tscore_T0 'T-score T0 letter fluency (schmand 2008)'.
+EXECUTE.
+
+* define impairment for FLUENCY.
+COMPUTE Zsc_fluency_T0 = (fluency_Tscore_T0- 50) / 10.
+EXECUTE.
+
+
+
+
+
