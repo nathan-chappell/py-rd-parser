@@ -14,24 +14,46 @@
 # ]
 
 regex_lexemes = [
-    ("newline", r'\n'),
-    ("end_of_statement", r'\.\n'),
-    ("asterisk", r'\*'),
-    ("op_comp", r'<=|=<|>='),
-    ("assignment_op", r'='),
-    ("op", r'\+|-|/'), # '*' is asterisk
-    ("dot", r'\.'),
-    ("left_brace", r'\('),
-    ("right_brace", r'\)'),
+    ("newline", r"\n"),
+    ("end_of_statement", r"\.\n"),
+    ("asterisk", r"\*"),
+    ("op_comp", r"<=|=<|>="),
+    ("assignment_op", r"="),
+    ("add_sub_op", r"\+|-"),  # '*' is asterisk
+    ("div_op", r"/"),
+    ("dot", r"\."),
+    ("left_brace", r"\("),
+    ("right_brace", r"\)"),
     ("sqstring", r"'[^']*'"),
     # ("single_quote", r"'"),
-    ("number", r'0|[1-9][0-9]*'),
-    ("identifier", r'[a-zA-Z0-9_]+'),
-    ("ws", r'[ \t]+'),
-    ("other", r'.'),
+    ("number", r"0|[1-9][0-9]*"),
+    ("identifier", r"[a-zA-Z0-9_]+"),
+    ("ws", r"[ \t]+"),
+    ("other", r"."),
 ]
 
-_any_lexeme = set(['keyword'] + [name for name, _ in regex_lexemes])
+skip_lexemes = ["ws", "newline"]
+
+expression_grammar = [
+    "Expression -> left_brace Expression right_brace",
+    "Expression -> BinOpExpression",
+    "Expression -> CompareOpExpression",
+    "BinOpExpression -> AddSubExpression",
+    "AddSubExpression -> MulDivExpression add_sub_op Expression",
+    "BinOpExpression -> MulDivExpression",
+    "MulDivExpression -> Factor asterisk Expression",
+    "MulDivExpression -> Factor div_op Expression",
+    "Factor -> Variable",
+    "Variable -> identifier",
+    "Factor -> Constant",
+    "Constant -> Number",
+    "Number -> Float",
+    "Number -> Int",
+    "Float -> number dot number",
+    "Int -> number",
+]
+
+_any_lexeme = set(["keyword"] + [name for name, _ in regex_lexemes])
 
 grammar = [
     # "Script -> Statements",
@@ -69,15 +91,7 @@ grammar = [
     "Comment -> asterisk NotEOSs end_of_statement",
     "NotEOSs -> NotEOS NotEOSs",
     "NotEOSs -> NotEOS",
-    *(f"NotEOS -> {lexeme}" for lexeme in _any_lexeme - {'end_of_statement'}),
+    *(f"NotEOS -> {lexeme}" for lexeme in _any_lexeme - {"end_of_statement"}),
     "EmptyLine -> newline",
-    # "Sqstring -> single_quote NotSQs single_quote",
-    # "NotSQs -> NotSQ NotSQs",
-    # "NotSQs -> NotSQ",
-    # *(f"NotSQ -> {lexeme}" for lexeme in _any_lexeme - {'single_quote'}),
-    "Number -> Float",
-    "Number -> Int",
-    "Float -> number dot number",
-    "Int -> number",
+    *expression_grammar
 ]
-
