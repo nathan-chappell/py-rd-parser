@@ -14,42 +14,84 @@ log = logging.getLogger(__name__)
 ParseNode = namedtuple("ParseNode", ["type", "children"])
 
 
-class ParseError(Exception):
-    def __init__(self, symbol, start, depth, *args, lexeme=None, child_errors=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.symbol = symbol
-        self.start = start
-        self.depth = depth
-        self.lexeme = lexeme
-        self.child_errors = child_errors
-
-    def __str__(self):
-        m = super().__str__()
-        m_start = (
-            f"({self.depth:3})" + "  " * (min(40, self.depth)) + f"({self.start:3}) {self.symbol}"
-        )
-        # return f'{m} - at {self.start}: {self.lexeme}'
-        if not self.child_errors:
-            return f"{m_start} {self.lexeme} | error: {m}"
-        else:
-            return f"{m_start} -> {m}\n" + "\n".join([str(child) for child in self.child_errors])
+def eof_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    if consume_lexeme() is None:
+        log.debug(f"{eof_parser.__name__} success")
+        yield ParseNode("EOF", [])
+        log.debug(f"{eof_parser.__name__} exhausted {symbol}")
 
 
-class RecoverableParseError(ParseError):
-    pass
+def keyword_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    literal = symbol.strip("'")
+    lexeme = consume_lexeme()
+    if lexeme is not None and lexeme.type == _KEYWORD and lexeme.value == literal:
+        log.debug(f"{keyword_parser.__name__} success {literal}")
+        yield ParseNode(_KEYWORD, [lexeme])
+    log.debug(f"{keyword_parser.__name__} exhausted {symbol}")
 
 
-class OptionalParseFailure(RecoverableParseError):
-    pass
+def optional_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    _symbol = symbol[:-1]
+    yield from parse_symbol(_symbol)
+    yield ParseNode("EmptyOption", [])
+    log.debug(f"{optional_parser.__name__} exhausted {symbol}")
 
 
-def backtrack(nodes: List["BTNode"]):
-    if not nodes:
+def multi_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    _symbol = symbol[:-1]
+    result = []
+    _no_gc = []
+    while True:
+        _iter = parse_symbol(_symbol)
+        _no_gc.append(_iter)
+        try:
+            result.append(next(_iter))
+        except StopIteration:
+            yield ParseNode(symbol, result)
+            break
+    for x in _no_gc:
+        del x
+    log.debug(f"{multi_parser.__name__} exhausted {symbol}")
+
+
+def lexeme_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    lexeme = consume_lexeme()
+    if lexeme is not None and lexeme.type == symbol or symbol.startswith("not_") and lexeme.type != symbol[4:]:
+        log.debug(f"{lexeme_parser.__name__} success {symbol} {lexeme.type}")
+        yield ParseNode(symbol, [lexeme])
+    log.debug(f"{lexeme_parser.__name__} exhausted {symbol}")
+
+
+def backtrack(symbols: List[str], parse_symbol):
+    if not symbols:
         yield []
     else:
-        for head in nodes[0]():
-            for rest in backtrack(nodes[1:]):
+        for head in parse_symbol(symbols[0]):
+            for rest in backtrack(symbols[1:], parse_symbol):
                 yield [head, *rest]
+
+
+def alternative_parser(symbol, grammar, consume_lexeme, parse_symbol):
+    for alternative in grammar.get(symbol, []):
+        for children in backtrack(alternative, parse_symbol):
+            log.debug(f'{alternative_parser.__name__} success \t| {symbol} = [{" ".join(alternative)}]')
+            yield ParseNode(symbol, children)
+    log.debug(f"{alternative_parser.__name__} exhausted {symbol}")
+
+
+def get_parser(symbol):
+    if symbol == "EOF":
+        return eof_parser
+    elif symbol.startswith("'"):
+        return keyword_parser
+    elif symbol.endswith("?"):
+        return optional_parser
+    elif symbol.endswith("*"):
+        return multi_parser
+    elif symbol.islower():
+        return lexeme_parser
+    else:
+        return alternative_parser
 
 
 def parse(
@@ -60,7 +102,7 @@ def parse(
 ):
     g, keywords, start_symbol = preprocess_grammar(grammar)
     unprocessed_lexemes: List[Lexeme] = list(iter_lexemes(string, keywords, regex_lexemes))
-    lexemes = reduce(lambda x, f: f(x), preprocess_lexemes, unprocessed_lexemes)
+    lexemes = list(reduce(lambda x, f: f(x), preprocess_lexemes, unprocessed_lexemes))
     lexeme_index = 0
     depth = 0
 
@@ -76,156 +118,39 @@ def parse(
         return lexeme
 
     @contextmanager
-    def restore_state():
+    def restore_state(message: string):
         nonlocal lexeme_index, depth
         _lexeme_index = lexeme_index
         _depth = depth
         try:
             yield
         finally:
+            log.debug(f"{message:40} | resetting state: {lexeme_index} -> {_lexeme_index}")
             lexeme_index = _lexeme_index
             depth = _depth
 
     def parse_(symbol: str):
-        nonlocal depth
+        nonlocal depth, lexeme_index
         depth += 1
         stats["attempts"][symbol] += 1
-        with restore_state():
-            lexeme = consume_lexeme()
-            log.debug(f"{' '*depth}{symbol} lexeme={lexeme}")
+        # log.debug(f"{' '*depth}{symbol} lexeme={lexemes[lexeme_index] if lexeme_index < len(lexemes) else 'EOF'}")
+        log.debug(f"({depth:03}) {symbol:30} lexeme={lexemes[lexeme_index] if lexeme_index < len(lexemes) else 'EOF'}")
 
-            def _make_error(
-                *args, cls=RecoverableParseError, lexeme=None, child_errors=None, **kwargs
-            ):
-                assert args or lexeme or child_errors
-                return cls(
-                    symbol,
-                    lexeme_index,
-                    depth,
-                    *args,
-                    **kwargs,
-                    lexeme=lexeme,
-                    child_errors=child_errors,
-                )
-
-            def eof_parser(symbol, consume_lexeme, parse_symbol):
-                if symbol == "EOF" and consume_lexeme() is None:
-                    yield ParseNode("EOF", [])
-
-            def any_parser(symbol, consume_lexeme, parse_symbol):
-                lexeme = consume_lexeme()
-                if symbol == "Any" and lexeme is not None:
-                    yield ParseNode("Any", [lexeme])
-
-            def keyword_parser(symbol, consume_lexeme, parse_symbol):
-                if symbol.startswith("'"):
-                    literal = symbol.strip("'")
-                    if literal in keywords and lexeme.type == _KEYWORD and lexeme.value == literal:
-                        yield ParseNode(_KEYWORD, [lexeme])
-
-            def optional_parser(symbol, consume_lexeme, parse_symbol):
-                if symbol.endswith("?"):
-                    _symbol = symbol[:-1]
-                    yield from parse_symbol(_symbol)
-                    yield [ParseNode("EmptyOption", [])]
-
-            def multi_parser(symbol, consume_lexeme, parse_symbol):
-                if symbol.endswith("*"):
-                    _symbol = symbol[:-1]
-                    for node in parse_symbol(_symbol):
-                        for rest in multi_parser(symbol, consume_lexeme, parse_symbol):
-                            yield [node, *rest]
-                    else:
-                        yield []
-
-            def lexeme_parser(symbol, consume_lexeme, parse_symbol):
-                if symbol.islower():
-                    lexeme = consume_lexeme()
-                    if (
-                        lexeme.type == symbol
-                        or symbol.startswith("not_")
-                        and lexeme.type != symbol[4:]
-                    ):
-                        yield ParseNode(symbol, [lexeme])
-
-            if symbol == "EOF":
-                if lexeme == None:
-                    result = ParseNode("EOF", [])
-                else:
-                    raise _make_error(lexeme=lexeme)
-            elif lexeme_index >= len(lexemes):
-                raise _make_error(f"Out of bounds.")
-            elif symbol == "Any":
-                if lexeme is not None:
-                    lexeme_index += 1
-                    result = ParseNode("Any", [lexeme])
-                else:
-                    raise _make_error(lexeme=lexeme)
-            elif symbol.startswith("'"):
-                literal = symbol.strip("'")
-                if literal in keywords and lexeme.type == _KEYWORD and lexeme.value == literal:
-                    lexeme_index += 1
-                    result = ParseNode(_KEYWORD, [lexeme])
-                else:
-                    raise _make_error(lexeme=lexeme)
-            elif symbol.endswith("?"):
-                _symbol = symbol[:-1]
-                _index = lexeme_index
-                try:
-                    result = parse_(_symbol)
-                except RecoverableParseError:
-                    lexeme_index = _index
-                    raise _make_error(cls=OptionalParseFailure, lexeme=lexeme)
-            elif symbol.endswith("*"):
-                _symbol = symbol[:-1]
-                multi_matches = []
-                while True:
-                    _index = lexeme_index
-                    try:
-                        multi_matches.append(parse_(_symbol))
-                    except RecoverableParseError:
-                        lexeme_index = _index
-                        # log.debug(f'multi finished at lexeme_index {lexeme_index}')
-                        break
-                result = ParseNode(symbol, multi_matches)
-            elif symbol.islower():
-                if lexeme.type == symbol or symbol.startswith("not_") and lexeme.type != symbol[4:]:
-                    lexeme_index += 1
-                    result = ParseNode(symbol, [lexeme])
-                else:
-                    raise _make_error(lexeme=lexeme)
-            else:
-                if symbol not in g:
-                    raise _make_error(f"Invalid symbol.", cls=ParseError)
-                errors = []
-                for alternative in g[symbol]:
-                    _i = lexeme_index
-                    children = []
-                    try:
-                        for _symbol in alternative:
-                            try:
-                                children.append(parse_(_symbol))
-                            except OptionalParseFailure:
-                                pass
-                        result = ParseNode(symbol, children)
-                        break
-                    except RecoverableParseError as e:
-                        if lexeme.word_info.line > 128:
-                            pass
-                        # log.debug(e)
-                        errors.append(e)
-                        lexeme_index = _i
-                        continue
-                else:
-                    raise _make_error(child_errors=errors)
-
-            # log.debug(f"parse_\t({symbol}) at (depth={depth:03}, lexeme_index={lexeme_index:03}) success")
-            stats["successes"][symbol] += 1
-            log.debug(f"{' '*depth}{symbol} success")
-            return result
+        parser = get_parser(symbol)
+        with restore_state(f"{parser.__name__} ({symbol})"):
+            # log.debug(f'({depth:03}) symbol: {symbol}, parser: {parser.__name__}')
+            yield from parser(
+                symbol,
+                grammar=g,
+                consume_lexeme=consume_lexeme,
+                parse_symbol=parse_,
+            )
+        # log.debug(f'({depth:03}) symbol: {symbol}, parser: {parser.__name__} reset state {lexeme_index} -> {_lexeme_index}')
 
     try:
-        return parse_(start_symbol)
+        return next(parse_(start_symbol))
+    except Exception as e:
+        pprint(e)
     finally:
         from pprint import pprint
 

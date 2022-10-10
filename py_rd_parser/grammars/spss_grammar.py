@@ -37,6 +37,7 @@ regex_lexemes = [
 
 # skip_lexemes = ["ws", "newline"]
 
+
 def remove_lexeme_type(_type: str):
     return lambda lexemes: filter(lambda lexeme: lexeme.type != _type, lexemes)
 
@@ -53,20 +54,25 @@ def concat_newline(lexemes: Iterable["Lexeme"]):
 def insert_end_of_statement(lexemes: Iterable["Lexeme"]):
     lexeme_iterator = iter(lexemes)
     previous_lexeme = next(lexeme_iterator)
+    new_previous_type = None
     for lexeme in lexeme_iterator:
-        if (previous_lexeme.type, lexeme.type) in [('dot','newline'), ('newline', 'keyword')]
-            new_previous_type = 'end_of_statement'
+        if (previous_lexeme.type, lexeme.type) in [
+            ("dot", "newline"),
+            ("newline", "keyword"),
+        ] and new_previous_type != "end_of_statement":
+            new_previous_type = "end_of_statement"
         else:
             new_previous_type = previous_lexeme.type
         yield previous_lexeme._replace(type=new_previous_type)
+        previous_lexeme = lexeme
     yield lexeme
 
 
 preprocess_lexemes = [
-    remove_lexeme_type('ws'),
+    remove_lexeme_type("ws"),
     concat_newline,
     insert_end_of_statement,
-    remove_lexeme_type('newline'),
+    remove_lexeme_type("newline"),
 ]
 
 
@@ -93,11 +99,8 @@ expression_grammar = [
 
 grammar = [
     # "Script -> Statements",
-    "Script -> BOM Statement* EOF",
-    "BOM -> Any Any Any",
-    "BOM -> Any Any",
+    "Script -> Statement* EOF",
     "Statement -> Statement_ end_of_statement",
-    "Statement -> Statement_ newline",
     # "Statement -> Statement_ EndOfStatement",
     # "EndOfStatement -> end_of_statement",
     # "EndOfStatement -> newline | end_of_statement",
