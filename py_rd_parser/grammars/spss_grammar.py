@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Iterable
 
 # keywords = [
 #     "COMPUTE",
@@ -17,7 +17,7 @@ from typing import List
 
 regex_lexemes = [
     ("newline", r"\n"),
-    ("end_of_statement", r"\.\s*\n"),
+    # ("end_of_statement", r"\.\s*\n"),
     ("asterisk", r"\*"),
     ("compare_op", r"<=|=<|>="),
     ("assignment_op", r"="),
@@ -36,48 +36,37 @@ regex_lexemes = [
 ]
 
 # skip_lexemes = ["ws", "newline"]
-def remove_ws(lexemes: List["Lexeme"]) -> List["Lexeme"]:
-    return [lexeme for lexeme in lexemes if lexeme.type != "ws"]
+
+def remove_lexeme_type(_type: str):
+    return lambda lexemes: filter(lambda lexeme: lexeme.type != _type, lexemes)
 
 
-def remove_newline(lexemes: List["Lexeme"]) -> List["Lexeme"]:
-    return [lexeme for lexeme in lexemes if lexeme.type != "newline"]
-
-
-def concat_newline(lexemes: List["Lexeme"]) -> List["Lexeme"]:
-    result = []
+def concat_newline(lexemes: Iterable["Lexeme"]):
     skip_newline = False
     for lexeme in lexemes:
         if lexeme.type == "newline" and skip_newline:
             continue
         skip_newline = lexeme.type == "newline" and not skip_newline
-        result.append(lexeme)
-    return result
+        yield lexeme
 
 
-def insert_end_of_statement(lexemes: List["Lexeme"]) -> List["Lexeme"]:
-    result = []
-    i = 0
-    while i < len(lexemes):
-        lexeme = lexemes[i]
-        if (
-            lexeme.type == "newline"
-            and i < len(lexemes) - 1
-            and lexemes[i + 1].type in ["dot", "keyword"]
-        ):
-            lexeme = lexeme._replace(type="end_of_statement")
-            if lexemes[i + 1].type == "dot":
-                i += 1
-        result.append(lexeme)
-        i += 1
-    return result
+def insert_end_of_statement(lexemes: Iterable["Lexeme"]):
+    lexeme_iterator = iter(lexemes)
+    previous_lexeme = next(lexeme_iterator)
+    for lexeme in lexeme_iterator:
+        if (previous_lexeme.type, lexeme.type) in [('dot','newline'), ('newline', 'keyword')]
+            new_previous_type = 'end_of_statement'
+        else:
+            new_previous_type = previous_lexeme.type
+        yield previous_lexeme._replace(type=new_previous_type)
+    yield lexeme
 
 
 preprocess_lexemes = [
-    remove_ws,
+    remove_lexeme_type('ws'),
     concat_newline,
     insert_end_of_statement,
-    remove_newline,
+    remove_lexeme_type('newline'),
 ]
 
 

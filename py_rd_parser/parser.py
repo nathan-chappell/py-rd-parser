@@ -1,7 +1,8 @@
 import logging
 from collections import namedtuple, defaultdict
+from contextlib import contextmanager
 from functools import reduce
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Generator, Callable
 
 from .lex import iter_lexemes, Lexeme, LexError, _KEYWORD
 from .grammar import preprocess_grammar
@@ -42,6 +43,15 @@ class OptionalParseFailure(RecoverableParseError):
     pass
 
 
+def backtrack(nodes: List['BTNode']):
+    if not nodes:
+        yield []
+    else:
+        for head in nodes[0]():
+            for rest in backtrack(nodes[1:]):
+                yield [head, *rest]
+
+
 def parse(
     string: str,
     regex_lexemes: List[Tuple[str, str]],
@@ -59,19 +69,30 @@ def parse(
         "successes": defaultdict(int),
     }
 
-    def next_lexeme():
+    def consume_lexeme():
         nonlocal lexeme_index
-        # while lexeme_index < len(lexemes) and lexemes[lexeme_index].type in skip_lexemes:
-        #     lexeme_index += 1
-        return lexemes[lexeme_index] if lexeme_index < len(lexemes) else None
+        lexeme = lexemes[lexeme_index] if lexeme_index < len(lexemes) else None
+        lexeme_index += 1
+        return lexeme
+    
+    @contextmanager
+    def restore_state():
+        nonlocal lexeme_index, depth
+        _lexeme_index = lexeme_index
+        _depth = depth
+        try:
+            yield
+        finally:
+            lexeme_index = _lexeme_index
+            depth = _depth
+
 
     def parse_(symbol: str):
-        nonlocal lexeme_index, depth
+        nonlocal depth
         depth += 1
         stats["attempts"][symbol] += 1
-        try:
-            lexeme = next_lexeme()
-            # log.debug(f"trying parse_\t({symbol}) at (depth={depth:03}, lexeme_index={lexeme_index:03}, lexeme={lexeme})")
+        with restore_state():
+            lexeme = consume_lexeme()
             log.debug(f"{' '*depth}{symbol} lexeme={lexeme}")
 
             def _make_error(
@@ -87,6 +108,41 @@ def parse(
                     lexeme=lexeme,
                     child_errors=child_errors,
                 )
+            
+            def eof_parser(symbol: str, consume_lexeme, parse_symbol):
+                if symbol == "EOF" and consume_lexeme() is None:
+                    yield ParseNode("EOF", [])
+            
+            def any_parser(symbol: str, consume_lexeme, parse_symbol):
+                lexeme = consume_lexeme()
+                if symbol == "Any" and lexeme is not None:
+                    yield ParseNode("Any", [lexeme])
+            
+            def keyword_parser(symbol: str, consume_lexeme, parse_symbol):
+                if symbol.startswith("'"):
+                    literal = symbol.strip("'")
+                    if literal in keywords and lexeme.type == _KEYWORD and lexeme.value == literal:
+                        yield ParseNode(_KEYWORD, [lexeme])
+            
+            def optional_parser(symbol: str, consume_lexeme, parse_symbol):
+                if symbol.endswith("?"):
+                    _symbol = symbol[:-1]
+                    yield from parse_symbol(_symbol)
+                    yield [ParseNode('EmptyOption', [])]
+            
+            def multi_parser(symbol: str, consume_lexeme, parse_symbol):
+                if symbol.endswith("*"):
+                    _symbol = symbol[:-1]
+                    multi_matches = []
+                    while True:
+                        _index = lexeme_index
+                        try:
+                            multi_matches.append(parse_(_symbol))
+                        except RecoverableParseError:
+                            lexeme_index = _index
+                            # log.debug(f'multi finished at lexeme_index {lexeme_index}')
+                            break
+                    result = ParseNode(symbol, multi_matches)
 
             if symbol == "EOF":
                 if lexeme == None:
@@ -163,8 +219,6 @@ def parse(
             stats["successes"][symbol] += 1
             log.debug(f"{' '*depth}{symbol} success")
             return result
-        finally:
-            depth -= 1
 
     try:
         return parse_(start_symbol)
