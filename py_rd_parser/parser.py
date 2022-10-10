@@ -43,7 +43,7 @@ class OptionalParseFailure(RecoverableParseError):
     pass
 
 
-def backtrack(nodes: List['BTNode']):
+def backtrack(nodes: List["BTNode"]):
     if not nodes:
         yield []
     else:
@@ -74,7 +74,7 @@ def parse(
         lexeme = lexemes[lexeme_index] if lexeme_index < len(lexemes) else None
         lexeme_index += 1
         return lexeme
-    
+
     @contextmanager
     def restore_state():
         nonlocal lexeme_index, depth
@@ -85,7 +85,6 @@ def parse(
         finally:
             lexeme_index = _lexeme_index
             depth = _depth
-
 
     def parse_(symbol: str):
         nonlocal depth
@@ -108,41 +107,46 @@ def parse(
                     lexeme=lexeme,
                     child_errors=child_errors,
                 )
-            
-            def eof_parser(symbol: str, consume_lexeme, parse_symbol):
+
+            def eof_parser(symbol, consume_lexeme, parse_symbol):
                 if symbol == "EOF" and consume_lexeme() is None:
                     yield ParseNode("EOF", [])
-            
-            def any_parser(symbol: str, consume_lexeme, parse_symbol):
+
+            def any_parser(symbol, consume_lexeme, parse_symbol):
                 lexeme = consume_lexeme()
                 if symbol == "Any" and lexeme is not None:
                     yield ParseNode("Any", [lexeme])
-            
-            def keyword_parser(symbol: str, consume_lexeme, parse_symbol):
+
+            def keyword_parser(symbol, consume_lexeme, parse_symbol):
                 if symbol.startswith("'"):
                     literal = symbol.strip("'")
                     if literal in keywords and lexeme.type == _KEYWORD and lexeme.value == literal:
                         yield ParseNode(_KEYWORD, [lexeme])
-            
-            def optional_parser(symbol: str, consume_lexeme, parse_symbol):
+
+            def optional_parser(symbol, consume_lexeme, parse_symbol):
                 if symbol.endswith("?"):
                     _symbol = symbol[:-1]
                     yield from parse_symbol(_symbol)
-                    yield [ParseNode('EmptyOption', [])]
-            
-            def multi_parser(symbol: str, consume_lexeme, parse_symbol):
+                    yield [ParseNode("EmptyOption", [])]
+
+            def multi_parser(symbol, consume_lexeme, parse_symbol):
                 if symbol.endswith("*"):
                     _symbol = symbol[:-1]
-                    multi_matches = []
-                    while True:
-                        _index = lexeme_index
-                        try:
-                            multi_matches.append(parse_(_symbol))
-                        except RecoverableParseError:
-                            lexeme_index = _index
-                            # log.debug(f'multi finished at lexeme_index {lexeme_index}')
-                            break
-                    result = ParseNode(symbol, multi_matches)
+                    for node in parse_symbol(_symbol):
+                        for rest in multi_parser(symbol, consume_lexeme, parse_symbol):
+                            yield [node, *rest]
+                    else:
+                        yield []
+
+            def lexeme_parser(symbol, consume_lexeme, parse_symbol):
+                if symbol.islower():
+                    lexeme = consume_lexeme()
+                    if (
+                        lexeme.type == symbol
+                        or symbol.startswith("not_")
+                        and lexeme.type != symbol[4:]
+                    ):
+                        yield ParseNode(symbol, [lexeme])
 
             if symbol == "EOF":
                 if lexeme == None:
