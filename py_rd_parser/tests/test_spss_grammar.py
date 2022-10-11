@@ -33,7 +33,7 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
+    # logging.getLogger().setLevel(logging.DEBUG)
     parse_result = test_spss_grammar(_test_files[1])
 
     def print_node(parse_node, depth=0):

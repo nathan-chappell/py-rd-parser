@@ -133,19 +133,16 @@ def parse(
         nonlocal depth, lexeme_index
         depth += 1
         stats["attempts"][symbol] += 1
-        # log.debug(f"{' '*depth}{symbol} lexeme={lexemes[lexeme_index] if lexeme_index < len(lexemes) else 'EOF'}")
         log.debug(f"({depth:03}) {symbol:30} lexeme={lexemes[lexeme_index] if lexeme_index < len(lexemes) else 'EOF'}")
 
         parser = get_parser(symbol)
         with restore_state(f"{parser.__name__} ({symbol})"):
-            # log.debug(f'({depth:03}) symbol: {symbol}, parser: {parser.__name__}')
             yield from parser(
                 symbol,
                 grammar=g,
                 consume_lexeme=consume_lexeme,
                 parse_symbol=parse_,
             )
-        # log.debug(f'({depth:03}) symbol: {symbol}, parser: {parser.__name__} reset state {lexeme_index} -> {_lexeme_index}')
 
     try:
         return next(parse_(start_symbol))
