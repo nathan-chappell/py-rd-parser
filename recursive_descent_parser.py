@@ -2,12 +2,11 @@ import logging
 import typing as T
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import wraps
 
 
 logging.basicConfig(level=logging.WARN)
 log = logging.getLogger(__name__)
-cache_log = logging.getLogger("cache")
-cache_log.setLevel(logging.WARN)
 
 TokenMatch = T.List[T.Tuple[str, T.Union[str, "Match"]]]
 
@@ -39,6 +38,38 @@ class Match:
             print("  " * depth + line)
 
 
+TParseFn = T.Callable[[T.Any, T.List[str], str, int], Match]
+
+def cache_stats_decorator(fn: TParseFn) -> TParseFn:
+    @wraps(TParseFn)
+    def wrapped(self, lexemes: T.List[str], target: str, index: int = 0) -> Match:
+        use_cache: bool = getattr(self, 'use_cache', False)
+        cache: T.DefaultDict[T.Tuple[str, int], Match] = getattr(self, 'cache', None)
+        stats: T.DefaultDict[T.Tuple[str, int], int] = getattr(self, 'stats', None)
+
+        if stats is not None:
+            stats[("__CALL__", -1)] += 1
+
+        if not use_cache or cache is None or stats is None:
+            return fn(self, lexemes, target, index)
+        else:
+            _cache_key = (target, index)
+            cached_result = cache.get(_cache_key, None)
+            if isinstance(cached_result, ParseException):
+                raise cached_result
+            elif cached_result is not None:
+                return cached_result
+            else:
+                stats[_cache_key] += 1
+                try:
+                    result = fn(self, lexemes, target, index)
+                    cache[_cache_key] = result
+                    return result
+                except ParseException as e:
+                    cache[_cache_key] = e
+                    raise e
+    return wrapped
+
 @dataclass
 class RecursiveDescentParser:
     lexemes: T.List[str]
@@ -52,21 +83,8 @@ class RecursiveDescentParser:
     def is_lexeme(self, name: str) -> bool:
         return name in self.lexemes
 
+    @cache_stats_decorator
     def parse(self, lexemes: T.List[str], target: str, index: int = 0) -> Match:
-        # CACHE / STATS
-        self.stats[("__CALL__", -1)] += 1
-        _cache_key = (target, index)
-        if self.use_cache:
-            cached_result = self.cache.get(_cache_key, None)
-            if isinstance(cached_result, ParseException):
-                raise cached_result
-            elif cached_result is not None:
-                cache_log.info(f"[HIT] ({target},{index})")
-                return cached_result
-            cache_log.info(f"[MISS] ({target},{index})")
-        self.stats[_cache_key] += 1
-        # CACHE / STATS
-
         options = [(k, v) for k, v in self.grammar if k == target]
         log.info(f"parse({target}, {index})")
         for option_name, option in options:
@@ -100,20 +118,10 @@ class RecursiveDescentParser:
                 _end = _start if len(match) == 0 else match[-1].end
                 log.debug(f"  _SUCC {option_name} ({option})")
 
-                result = Match(option_name, match, _start, _end)
-                # CACHE / STATS
-                if self.use_cache:
-                    self.cache[_cache_key] = result
-                # CACHE / STATS
-                return result
+                return Match(option_name, match, _start, _end)
             except ParseException:
                 log.debug(f"  _FAIL {option_name} ({option})")
                 match = []
                 index = _start
         else:
-            exception = ParseException()
-            # CACHE / STATS
-            if self.use_cache:
-                self.cache[_cache_key] = exception
-            # CACHE / STATS
-            raise exception
+            raise ParseException()
