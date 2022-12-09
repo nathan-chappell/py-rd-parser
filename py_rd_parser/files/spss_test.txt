@@ -1,2 +1,0 @@
-﻿COMPUTE motor_speed_domain=ftt_right_taps_average + ftt_left_taps_average.
-EXECUTE.
