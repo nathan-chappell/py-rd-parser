@@ -2,6 +2,7 @@ from datetime import datetime
 from pprint import pprint
 
 from recursive_descent_parser import RecursiveDescentParser
+from memoizer import Memoizer
 
 def test_0n1n():
     lexemes = ["0", "1"]
@@ -10,6 +11,10 @@ def test_0n1n():
     result = parser.parse("0 0 1 1".split(), "S")
     result.print_result()
     pprint(parser.stats)
+
+
+def run_parser():
+    ...
 
 
 def test_exp(use_cache: bool):
