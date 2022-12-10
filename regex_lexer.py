@@ -32,7 +32,8 @@ class RegexLexer:
                 if match is not None:
                     matched = match[0]
                     matched_length = len(matched)
-                    yield Lexeme(name, matched, i, i + matched_length, line, column)
+                    if name != 'ws':
+                        yield Lexeme(name, matched, i, i + matched_length, line, column)
                     update_position(matched)
                     i += matched_length
                     break

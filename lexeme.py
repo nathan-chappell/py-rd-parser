@@ -16,11 +16,13 @@ class Lexeme:
     def __eq__(self, o: object) -> bool:
         if isinstance(o, Lexeme):
             return all(
-                o.name == self.name,
-                o.value == self.value,
-                o.start == self.start,
+                [
+                    o.name == self.name,
+                    o.value == self.value,
+                    o.start == self.start,
+                ]
             )
         elif isinstance(o, str):
-            return o == self.value
+            return o == self.name
         else:
             return super().__eq__(self, o)

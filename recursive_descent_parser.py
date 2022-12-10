@@ -19,14 +19,15 @@ TRule = T.Tuple[THead, TProduction]
 
 class RecursiveDescentParser:
     grammar: T.List[TRule]
-    is_lexeme_name: T.Callable[[str], bool] = lambda s: s[0].islower()
+    is_lexeme_name: T.Callable[[str], bool]
+    total_calls = 0
 
     def __init__(self, grammar: T.List[TRule], is_lexeme_name: T.Optional[T.Callable[[str], bool]] = None) -> None:
         self.grammar = grammar
-        if is_lexeme_name is not None:
-            self.is_lexeme_name = is_lexeme_name
+        self.is_lexeme_name = (lambda s: s[0].islower()) if is_lexeme_name is None else is_lexeme_name
 
-    def parse(self, lexemes: T.List[Lexeme], target: str, index: int = 0) -> AstNode:
+    def parse(self, lexemes: T.List[Lexeme], target: str, index: int) -> AstNode:
+        self.total_calls += 1
         productions = [production for head, production in self.grammar if head == target]
         log.info(f"parse({target}, {index})")
         for production in productions:
