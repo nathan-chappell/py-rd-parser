@@ -151,9 +151,31 @@ class Lexeme:
 
 The actual code contains a method to allow a *lexeme* to be compared to a string by `name`.  Here `name` is expected to be the name of a *terminal*, `value` is the substring that was matched, `start` and `end` define the span of the match `[start,end)`.  `line` and `column` are source information.  They won't be particularly important to us here, but since they are important in practice I've included them.
 
-Suppose that we have been given some *grammar*.  We know that it describes some *language.*  Suppose we have some *text* `T`, and we know
-
 ## Recursive Descent Parsers
+
+At this point we should describe our parsing algorithm.  I've taken the python code, and removed the "noise" to make it clear as possible.  `lexemes` is the sequence of lexemes.  `target` is the symbol which should be parsed.  `index` is the position in `lexemes` where `target` should be parsed.
+
+```py
+def parse(lexemes, target, index):
+    for head, body in productions_for_target:
+        assert head == target
+        try:
+            children = []
+            for symbol in body:
+                if current_lexeme_matches_symbol:   children.append(AstNode(symbol, current_lexeme))
+                elif symbol_is_non_terminal:        children.append(parse(lexemes, symbol, index))
+                else: FAIL()
+            return AstNode(target, children)
+        except Failure:
+            restart
+    raise ParseException()
+```
+
+The algorithm proceeds by iterating through the productions for the target symbol.  For each production, it tries to match each symbol in sequence.  If the symbol is a *terminal*, then it can add a child to the list of children immediately.  If the symbol is a *non-terminal*, then it must get the child by recursively calling `parse`.  Note that when a single production fails to match, an exception is raised.  It is immediately caught, and the algorithm "restarts" with the next production.  If some production matches, then an `AstNode` is returned, otherwise an exception is raised.
+
+It should be clear why this parsing technique is known as "recursive descent."  From the point of view of the grammar, we basically just keep trying to recursively expand symbols, left-to-right, until we fail to match an expected lexeme or succeed.  If you think that this sounds inefficient, well it is!  And if you think that this algorithm is just going to go into an infinite recursion, it will!  We'll deal with the inefficiency later, but we should address the other point immediately.
+
+### Avoiding Infinite (Left) Recursion
 
 ### `recursive_descent_parser.py`
 
