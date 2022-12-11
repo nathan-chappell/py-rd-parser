@@ -101,9 +101,57 @@ It's worth noting, that with some reasonable conventions, a grammar can be given
 
 Indeed this was the original implementation, and those are good conventions to follow even if you have a more elaborated definition of a grammar.  The more elaborate definition proved to be more convenient while testing and refactoring.
 
+Now we have defined a new abstraction, the *grammar*, but it is yet to demonstrate its usefulness.
+
 # Parsers
 
-Suppose we would like to interpret arithmetic expressions in some text, and evaluate them given the values of the variables.
+Suppose we would like to interpret arithmetic expressions in some text, and evaluate them.  This seems like a pretty reasonable thing to do, in fact it seems like it's what programming languages do - or, rather, their runtimes.  Concretely, suppose we have the expression `1 + 2 * 3`.  How can we evaluate it?  
+
+One technique utilizes a data structure called the *abstract syntax tree (AST)*.  Here is what such a tree would look like for `1 + 2 * 3`:
+
+```
+  +
+ / \
+1   *
+   / \
+  2   3
+```
+
+Before figuring out how we'd create such a tree, let's first see how we can use it to evaluate the expression.  Let's say we're at the `+` node.  The value of our node should be the value of our left child plus the value of our right child.  So, we recurse into our children, and return the sum of the result.  Our left child is just `1`, so evaluating that node just results in `1`.  The right child is a `*`, so again we recurse into our children, and return their product.  This gives us `6`, which after summing with `1` gives us the result `7`, which is what we wanted.
+
+Our purpose now is to show how we can use a grammar to produce an *AST*.  This will be the result of the final implementation, but for now we discuss parsers more generally.
+
+## Parsers more generally
+
+We refer to [wikipedia](https://en.wikipedia.org/wiki/Parsing) for a definition:
+
+> Parsing, syntax analysis, or syntactic analysis is the process of analyzing a string of symbols, either in natural language, computer languages or data structures, conforming to the rules of a formal grammar... Within computational linguistics the term is used to refer to the formal analysis by a computer of a sentence or other string of words into its constituents, resulting in a parse tree showing their syntactic relation to each other
+
+In my words, a *parser* takes some *text* as input, and produces some *internal representation* as output.  There are a number of considerations for both the *text* and desired output.
+
+* Is the *text* binary or "textual"?
+* Does the entire input need to be read before it can be parsed?  (I.e. can we parse from a stream?)
+
+While there is no conceptual difference between parsing binary or "string-like" (we'll assume python `str` type for our implementation) sequences of symbols, there tend to be different practical implications.  First of all, it seems like it would be good practice to keep the logic which parses some "high-level language" separated from the logic that interprets bytes as ints or characters.  This is basic [separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns).  As a result, the complete system that takes bytes to *AST* will typically be a [Layered System](https://www.ics.uci.edu/~fielding/pubs/dissertation/net_arch_styles.htm#sec_3_4_2).
+
+### Lexical Analysis
+
+The reason to mention all this is that it is often useful to introduce another "layer" between the input and the construction of the *AST.*  This layer is often called *lexical analysis*.  The *lexical analyzer* will take the input, in our case some `str`, and will transform it into a sequence of *lexemes*.  These lexemes will typically carry information about the source it came from, and the *terminal* to which it is associated.  Here is our implementation of *lexeme*:
+
+```py
+@dataclass
+class Lexeme:
+    name: str
+    value: str
+    start: int
+    end: int
+    line: T.Optional[int] = None
+    column: T.Optional[int] = None
+```
+
+The actual code contains a method to allow a *lexeme* to be compared to a string by `name`.  Here `name` is expected to be the name of a *terminal*, `value` is the substring that was matched, `start` and `end` define the span of the match `[start,end)`.  `line` and `column` are source information.  They won't be particularly important to us here, but since they are important in practice I've included them.
+
+Suppose that we have been given some *grammar*.  We know that it describes some *language.*  Suppose we have some *text* `T`, and we know
 
 ## Recursive Descent Parsers
 
