@@ -2,18 +2,18 @@ from collections import defaultdict
 from functools import wraps
 import typing as T
 
-P = T.ParamSpec("P")
+Params = T.ParamSpec("Params")
 Result = T.TypeVar("Result")
 CacheKey = T.TypeVar("CacheKey")
 
 
-def memoize(make_key: T.Callable[P, CacheKey]) -> T.Callable[[T.Callable[P, Result]], T.Callable[P, Result]]:
+def memoize(make_key: T.Callable[Params, CacheKey]) -> T.Callable[[T.Callable[Params, Result]], T.Callable[Params, Result]]:
     cache: T.Dict[CacheKey, T.Union[Result, Exception]] = {}
     stats: T.DefaultDict[str, int] = defaultdict(int)
 
-    def outer_wrapper(fn: T.Callable[P, Result]) -> T.Callable[P, Result]:
+    def outer_wrapper(fn: T.Callable[Params, Result]) -> T.Callable[Params, Result]:
         @wraps(fn)
-        def wrapped(*args: P.args, **kwargs: P.kwargs) -> Result:
+        def wrapped(*args: Params.args, **kwargs: Params.kwargs) -> Result:
             cache_key = make_key(*args, **kwargs)
             if cache_key not in cache:
                 stats["cache_misses"] += 1

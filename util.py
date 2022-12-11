@@ -3,15 +3,17 @@ import typing as T
 from ast_node import AstNode
 
 
-def print_result(match: AstNode):
-    def yield_lines(_match: AstNode, depth=0) -> T.Generator[T.Tuple[int, str], None, None]:
+def print_result(node: AstNode):
+    def yield_lines(_node: AstNode, depth=0) -> T.Generator[T.Tuple[int, str], None, None]:
         """Get (depth, match-string) tuples recursively"""
-        yield (depth, f"{_match.name} [{_match.start}, {_match.end})")
-        for _match in _match.children:
-            if isinstance(_match, str):
-                yield (depth + 1, f"{_match.name}")
+        yield (depth, f"{_node.name} [{_node.start}, {_node.end})")
+        for _node in _node.children:
+            if isinstance(_node, str):
+                yield (depth + 1, f"{_node.name}")
             else:
-                yield from yield_lines(_match, depth + 1)
+                yield from yield_lines(_node, depth + 1)
 
-    for depth, line in yield_lines(match):
+    for depth, line in yield_lines(node):
         print("  " * depth + line)
+
+

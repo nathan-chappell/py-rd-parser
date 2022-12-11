@@ -3,41 +3,35 @@ import typing as T
 from datetime import datetime
 from pprint import pprint, pformat
 from ast_node import AstNode
+from common_types import TRule
+from grammar import Grammar
 from lexeme import Lexeme
+from memoized_recursive_descent_parser import MemoizedRecursiveDescentParser
 
-from recursive_descent_parser import RecursiveDescentParser, TRule
+from recursive_descent_parser import RecursiveDescentParser
 from memoize import memoize
 from regex_lexer import RegexLexer
 
 
-class MemoizedRecursiveDescentParser(RecursiveDescentParser):
-    def __init__(self, grammar: T.List[TRule], is_lexeme_name: T.Optional[T.Callable[[str], bool]] = None) -> None:
-        super().__init__(grammar, is_lexeme_name)
-        self.parse = memoize(lambda lexemes, target, index: (target, index))(self.parse)
-
-
-def run(
-    name_pattern_pairs: T.List[T.Tuple[str, str]],
-    grammar: T.List[TRule],
-    target: str,
-    texts: T.List[str],
-):
-    lexer = RegexLexer(name_pattern_pairs)
-    for text in texts:
+def run(grammar: Grammar, print_lexemes: bool = False):
+    print(f"    *** GRAMMAR: {grammar.name} ***")
+    lexer = RegexLexer(grammar.terminals)
+    for name, text in grammar.examples.items():
         lexemes = list(lexer(text))
-        pprint(lexemes)
-        parser = RecursiveDescentParser(grammar)
-        memoized_parser = MemoizedRecursiveDescentParser(grammar)
+        if print_lexemes:
+            pprint(lexemes)
+        parser = RecursiveDescentParser(grammar.productions)
+        memoized_parser = MemoizedRecursiveDescentParser(grammar.productions)
 
         start_time = datetime.now()
-        results = [parser.parse(lexemes, target, 0)]
+        results = [parser.parse(lexemes, grammar.start_symbol, 0)]
         split_time = datetime.now()
-        results.append(memoized_parser.parse(lexemes, target, 0))
+        results.append(memoized_parser.parse(lexemes, grammar.start_symbol, 0))
         finish_time = datetime.now()
 
         print(
             f"""
-    *** Text ***,
+    *** Text {name}***,
 {text}
 lexemes:     {len(lexemes)}
     *** Parser ***,
