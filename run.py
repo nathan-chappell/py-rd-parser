@@ -3,7 +3,7 @@ import typing as T
 from datetime import datetime
 from pprint import pprint, pformat
 from ast_node import AstNode
-from common_types import TRule
+from common_types import TProduction
 from grammar import Grammar
 from lexeme import Lexeme
 from memoized_recursive_descent_parser import MemoizedRecursiveDescentParser

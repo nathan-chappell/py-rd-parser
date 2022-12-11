@@ -3,7 +3,7 @@ import typing as T
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import wraps
-from common_types import TRule
+from common_types import TProduction
 
 from lexeme import Lexeme
 from ast_node import AstNode
@@ -15,12 +15,12 @@ log = logging.getLogger(__name__)
 
 
 class RecursiveDescentParser:
-    productions: T.List[TRule]
+    productions: T.List[TProduction]
     is_lexeme_name: T.Callable[[str], bool]
     total_calls = 0
 
-    def __init__(self, rules: T.List[TRule], is_lexeme_name: T.Optional[T.Callable[[str], bool]] = None) -> None:
-        self.productions = rules
+    def __init__(self, productions: T.List[TProduction], is_lexeme_name: T.Optional[T.Callable[[str], bool]] = None) -> None:
+        self.productions = productions
         self.is_lexeme_name = (lambda s: s[0].islower()) if is_lexeme_name is None else is_lexeme_name
 
     def parse(self, lexemes: T.List[Lexeme], target: str, index: int) -> AstNode:
