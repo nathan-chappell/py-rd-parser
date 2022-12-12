@@ -153,7 +153,7 @@ The actual code contains a method to allow a *lexeme* to be compared to a string
 
 ## Recursive Descent Parsers
 
-At this point we should describe our parsing algorithm.  I've taken the python code, and removed the "noise" to make it clear as possible.  `lexemes` is the sequence of lexemes.  `target` is the symbol which should be parsed.  `index` is the position in `lexemes` where `target` should be parsed.
+At this point we should describe our parsing algorithm.  I've taken the python code, and removed the "noise" to make it clear as possible.  In particular, code related to keeping track of the "current_lexeme" is removed - it is mainly updating and resetting some variable which tracks the current "index."  `lexemes` is the sequence of lexemes.  `target` is the symbol which should be parsed.  `index` is the position in `lexemes` where `target` should be parsed.
 
 ```py
 def parse(lexemes, target, index):
@@ -177,9 +177,178 @@ It should be clear why this parsing technique is known as "recursive descent."  
 
 ### Avoiding Infinite (Left) Recursion
 
-### `recursive_descent_parser.py`
+Suppose our grammar is as follows:
+
+```
+    E -> E + E
+    E -> E
+    E -> number
+```
+
+And suppose we wish to use *recursive descent* to parse the expression `0 + 1`, starting from `E`.  The first prodcution we will descend into is `E + E`.  The first symbol of the production is `E`, which is a *non-terminal*, so we execute the statement starting with `elif symbol_is_non_terminal`, and immediately recurse into `parse(...)` again.  We have not made any "progress" in parsing, and we are now trying to parse the same symbol at the same location, therefore we are stuck in infinite recursion.
+
+The solution is a form of preprocessing sometimes called "normalization."  A full discussion can be found on [wikipedia](https://en.wikipedia.org/wiki/Left_recursion#Removing_left_recursion), here we will illustrate the idea so that you should be able to remove *left recursion* from your relatively simple grammars directly.  If you need a more systematic approach, consult the formal algorithm.
+
+The key idea depends on the notion of "making progress" that was eluded to before.  Let's consider "making progress" to be incrementing our index into the sequence of `lexemes`.  That is, every time our parser matches a *non-terminal*, our parser has made progress.  This tells us what we need to do to make sure that our grammar doesn't go into an infinite loop: remove all "paths" through our grammar that go from a *non-terminal* to the same *non-terminal*, and insert productions that will "simulate" those "paths" but guarantee progress as we've defined it.  That's a mouthful, here is this idea applied to the grammar above.
+
+First, the production `E -> E + E` has to go.  In general, every rule like `E -> E ...` must be changed.  What to change them to?  One idea is to see what `E` will eventually change into (say, `E'`), and replace the left-most occurrence of `E` in the production body with that symbol (e.g. `E'`).  In our case, `E` eventually must turn into `number`, so we apply the described tranformation and end up with:
+
+```
+    E -> number + E
+    E -> number
+    E -> number
+```
+
+We can now eliminate equivalent productions, leading to the simplified:
+
+```
+    E -> number + E
+    E -> number
+```
+
+The question is, does this lead to the same language?  Well, yes it does!  The language of the first grammar was a string of numbers separated by `+` signs, which is also clearly the language of the above grammar.
+
+### Evaluating an Expression (naively)
+
+In the following sections we will address concerns that primarily occur when trying to process an *AST* produced by our parsing algorithm.  We first provide a *naive* evaluation algorithm, in order to demonstrate its shortcomings and the shortcomings of the grammars we consider.  Here is the algorithm:
+
+```
+Evaluate node (AST Node from parsing an Expression)
+    if node is a leaf:
+        return its value
+    else:
+        lhs = evaluate left-child
+        rhs = evaluate left-child
+        return lhs op rhs
+```
+
+Here `lhs op rhs` means to apply the operator specified by the node.  Consider the following parse tree:
+
+```
+    -    
+   / \   
+  1   +  
+     / \ 
+    1   1
+```
+
+Our algorithm evaluates the tree by evaluating the root (`-`).  The `lhs` will be `1`, and the rhs is recursively calculated as `1 + 1 = 2`, so the result is `1 - 2 = -1`.
+
+### Dealing with Operator Precedence
+
+Now consider the following grammar, with *left recursion* removed:
+
+```
+    E -> number op E
+    E -> number
+    op -> '+' | '*'
+```
+
+Suppose we try to parse the expression `2 * 2 + 1`.  According to standard convention, this expression should be evaluated as `(2 * 2) + 1 = 4 + 1 = 5`.  The parse tree created by our grammar and recursive descent will look like:
+
+```
+    *    
+   / \   
+  2   +  
+     / \ 
+    2   1
+```
+
+Our naive implementation calculates `2 * (2 + 1) = 2 * 3 = 6` which is not correct.  The problem is that the grammar does not distinguish between `+` and `*`, and so cannot address [operator precedence](https://en.wikipedia.org/wiki/Order_of_operations).  Our parser, with this grammar, will always group operations to the right: `a op b op c op d ... = a op (b op (c op (d op ...)))`.  Fortunately, we can fix this with a little "trick."  Consider the following grammar:
+
+```
+    E -> ME + E
+    E -> ME
+    ME -> number * ME
+    ME -> number
+```
+
+Here `ME` can be thought of as abbreviating "multiplicative-expression."  Our grammar will now parse a sum of mulitplicative expressions, which will each in turn be a product of numbers (perhaps just one).  Now our grammar will parse according to the following productions:
+
+`E -> ME + E -> number * ME + E -> number * number + E -> number * number + ME -> number * number + number`
+
+and results in the following parse tree:
+
+```
+    +
+   / \
+  *   1
+ / \ 
+2   2
+```
+
+This tree, as is easily verified, will naively evaluate to the correct result.
+
+### Troubleshooting: Syntax or Semantics?
+
+The previous section demonstrates a common problem when trying to write a parser.  You won't always attempt to use such generic techniques as we're discussing, however you will always be troubleshooting two different things at once:
+
+* Is my implementation of the parser correct?
+* Is my understanding of the language correct?
+
+One advantage of using a parsing technique where the description of the language and implementation of the parser are separate is that you can easily troubleshoot either on or the other.  If you were to implement each *non-terminal* as a method of a class, for instance, then troubleshooting either the language or the parser requires changing the same code.  There are other advantages of not using a generic technique and declarative grammar as we are using, but it does force the issue described.  This can and should directly inform your decisions early on: if you have a strong understanding of the language you are parsing, and it is unlikely to change, you won't get much benefit from using a generic parsing system (unless you are unable to write a decent parser - not enough time perhaps).  On the other hand, if the precise language you need to parse is somewhat uncertain or is likely to change significantly, then a generic system may be useful until requirements stabilize or specific optimizations become necessary.
+
+### Operator Associativity
+
+There is a further consideration.  We've described our *naive evaluation* strategy, and shown before that our grammar had to be modified for our strategy to be correct.  We were able to reflect operator precedence at the grammar-level.  We are not able, using our *recursive-descent*, to handle operator associativity (well, we are only able to handle right-associativity as it stands.  This is still an area of research, you may wish to look at [this paper](https://www.researchgate.net/publication/220177599_A_new_top-down_parsing_algorithm_to_accommodate_ambiguity_and_left_recursion_in_polynomial_time) for other ways to handle this issue).
+
+Consider the following grammar:
+
+```
+E -> E op E
+E -> number
+op -> '+' | '-'
+```
+
+And suppose we wish to evaluate the expression `1 - 1 + 1`.  According to standard convention, this should be evaluated as `(1 - 1) + 1 = 1`.  It is important to notice that this is not the same as `1 - (1 + 1) = -1`.  The problem here is that the subtraction operator `-` is not [associative](https://en.wikipedia.org/wiki/Associative_property), that means that in general `(a - b) - c =/= a - (b - c)`.  Here is our parse tree:
+
+```
+    -    
+   / \   
+  1   +  
+     / \ 
+    1   1
+```
+
+When we *naively evaluate* this tree, we get `1 - (1 + 1) = -1` which is not correct.  Unfortunately, the same type of trick won't work as before.  The reason for this has to do with the fact that we are trying our parse from "left to right".  Because a simple parser-engine and declarative syntax were important goals for us, we will opt not to try to fix this issue within the grammar and our parser.  We will call such an issue a "semantic issue," and blame the *naive evaluation* instead.
+
+So the fix is to come up with a *non-naive evaluation* strategy.  We haven't shown the strategy until now because there were considerations that went into the construction of the final expression grammar that needed to be addressed.  Here is the relevant fragment of the grammar:
+
+```
+    AddExpr -> MulExpr add_op AddExpr
+    AddExpr -> MulExpr
+    MulExpr -> Factor mul_op MulExpr
+    MulExpr -> Factor
+    Factor -> int
+```
+
+Nothing should be surprising here at this point.  *Left recursion* has been eliminated, and `add_op` has been given a higher precedence than `mul_op`.  The *non-terminal* `Factor` has been introduced, as we will eventually want to allow *variables* and *parenthesized expressions*.
+
+Now for the (relevant parts of the) evaluation strategy.  We've ommited cases where a node has a single child and `evaluate` should descend without doing anything useful.
+
+```py
+def evaluate_expression(node, eval_left = identity_function):
+    # see below for `eval_left`
+    if node_is_binary_operation:
+        # eval_left is passed down to accomodate left-associative operators
+        lhs = eval_left(evaluate_expression(left_child))
+        _eval_left = lambda next_lhs: _apply_op(lhs, next_lhs)
+        if operator_is_not_associative:
+            return evaluate_expression(right_child, _eval_left)
+        else:
+            return apply_operator(lhs, evaluate_expression(right_child))
+    else:
+        # node is an int
+        return int(node.lexeme.value)
+```
+
+The most interesting (and obscure) part of this function is the `eval_left` parameter, which is by default the *identity function* which just returns its argument.  To see how `eval_left` is used, consider our previous example `1 - 1 + 1`.  Our root node is `-`.  Instead of returning `lhs - rhs`, we instead return `evaluate(right_node, lambda next_lhs: lhs - next_lhs)`.  When we descend, the value calculated for the `right_child` will be `apply_operator(lhs, evaluate_expression(right_child))`, which is `(lambda next_lhs: lhs - next_lhs)(1) + 1`, which is `(1 - 1) + 1`, WHICH IS correct.
+
+This isn't an exactly "obvious" or "trivial" solution to the problem, but the problem is very common and potentially subtle, so I recommend you keep it in mind when writing your own grammars.
 
 # Dynamic Programming
+
+
 
 ## Memoization
 
