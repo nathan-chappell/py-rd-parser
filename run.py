@@ -43,6 +43,6 @@ total_calls: {memoized_parser.total_calls}
 time:        {finish_time - split_time}
 span:        {results[1].start}, {results[1].end}
 stats:
-{pformat(getattr(memoized_parser.parse, "stats"))}
+{pformat(getattr(memoized_parser._parse, "stats", None))}
 """
         )

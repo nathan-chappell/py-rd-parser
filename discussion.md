@@ -348,7 +348,113 @@ This isn't an exactly "obvious" or "trivial" solution to the problem, but the pr
 
 # Dynamic Programming
 
+Now we address the question of efficiency.  To highlight that there is a problem to be solved, we consider the following grammar:
 
+```
+    AddExpr -> MulExpr add_op AddExpr
+    AddExpr -> MulExpr
+    MulExpr -> Factor mul_op AddExpr
+    MulExpr -> Factor
+    Factor -> lbrace AddExpr rbrace
+    Factor -> var
+    Factor -> int
+```
+
+This is almost our "final" grammar for arithmetic expressions, with one error: the `AddExpr` in the third production should be `MulExpr`, so that the third line should be `MulExpr -> Factor mul_op MulExpr`.  While not the grammar we actually want, its parse is extremely inefficient.
+
+### What do you mean "inefficient?"
+
+In general, the statement "its inefficient" is meaningless unless tied to some [measure of complexity](https://en.wikipedia.org/wiki/Blum_axioms).  Typical measures include "time to complete" or "total space needed".  While we are typically interested in "time to complete," the actual time required to complete the execution of some function can be highly non-deterministic on modern machines, and a truly thorough analysis of algorithms implemented in modern programming languages tends to be prohbitively difficult (would you like to try to figure out how many cpu operations will be necessary to complete any of the algorithms we described?  It would take a long time and probably not be any more helpful than much simpler figures you could come up with).  We will choose our own measure, simply the number of calls to the `parse` function.  While not a precise measure of runtime, if we can keep this number small then we should be able to parse efficiently.
+
+To demonstrate the inefficiency of the parser, suppose we want to parse expressions of the form `x * x * x * x ...`.  The following table records our measurements, where **n** refers to the number of `x`s in the expression:
+
+| n  | total calls |  time  |
+|--- | ----------- | ------ |
+|  2 |      19     |  0.000 |
+|  4 |      91     |  0.001 |
+|  6 |     379     |  0.005 |
+|  8 |    1531     |  0.009 |
+| 10 |    6139     |  0.025 |
+| 12 |   24571     |  0.101 |
+| 14 |   98299     |  0.394 |
+| 16 |  393211     |  1.652 |
+| 18 | 1572859     |  6.587 |
+| 20 | 6291451     | 25.693 |
+
+**Time** has been provided to aid in intuition a little bit.  It appears that the amount of calls is growing *exponentially.*  This is particularly bad news for and algorithm - most exponential-time complexity algorithms aren't practically useful.  It seems that if we wish to use our parser for anything interesting at all we must reduce this complexity, i.e., we must optimize the parser somehow.
+
+## Dynamic Programming (in a simplified setting)
+
+To demonstrate the technique known as [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming), we will, just like everyone else, optimize a recursive implementation of the [Fibonacci sequence](https://en.wikipedia.org/wiki/Fibonacci_number).  Since we don't want to insult anyone's intelligence, here is the code:
+
+```py
+def fibonacci_naive(n: int) -> int:
+    return n if n in (0,1) else fibonacci_naive(n-1) + fibonacci_naive(n-2)
+```
+
+If we wish to calculate the 20th fibonacci number, this function will be called **21891 times!**  Indeed, the nth fibonacci number is approximately `(.5 + sqrt(5))**n / sqrt(5)`, and the naive recursive implementation must reach a leaf with value `1` or `0`, so it will need to make at least than many calls (the important fact is that this number grows exponentially, even if it has a particularly curious exponent).  There is an obvious way to optimize this calculation.  We simply store `fib(n-1)` and `fib(n-2)` locally, and use them to compute the next value.  Once we've calculated enough of the values, we can return the result:
+
+```py
+def fibonacci_optimized(n: int) -> int:
+    if n <= 1:
+        return n
+    prev_val = 0
+    cur_val = 1
+    i = 2
+    while i <= n:
+        tmp = cur_val
+        cur_val = cur_val + prev_val
+        prev_val = tmp
+        i += 1
+    return cur_val
+```
+
+Two things to notice:
+
+1. It's much faster than the previous implementation, and will take `O(n)` time, since it must loop at most `n` times
+2. It will take `𝛺(n)` time, since it must loop `n` times (therefore, it's `𝛩(n)`)
+3. It's not generalizable
+4. It's ugly as all hell
+
+(4) might seem like a joke, but usually when we optimize code we would like to disturb it as little as possible to achieve sufficient improvement.  We've completely obliterated our old implementation with this one.  (3) is less important, it is significant because we are discussing a generic optimization technique.  The time bounds of (1) and (2) seem *okay,* but `𝛩(n)` can be improved somewhat.
+
+First, we'll address (3) with the following implementation:
+
+```py
+def fibonacci_bottom_up(n: int) -> int:
+    if n == 0: return 0
+    fib_sequence = [0,1]
+    i = 2
+    while i <= n:
+        fib_sequence.append(fib_sequence[-1] + fib_sequence[-2])
+        i += 1
+    return fib_sequence[-1]
+```
+
+This seems quite a bit simpler, and is in fact generalizable.  It leads to [our definition](https://en.wikipedia.org/wiki/Dynamic_programming#Computer_programming) of *bottom-up dynamic programming:*
+
+> Solve the problem by first solving smaller problems, then combine their results to build solutions to bigger problems
+
+Here the *smaller problems* are calculating the fibonacci numbers for `n-1` and `n-2`, then we combine them by adding the smaller solutions together.  A couple things to notice:
+
+1. It's time complexity is still `𝛩(n)`
+2. It's space complexity is now `𝛩(n)`
+3. It's generalizable
+
+To see that it's generalizable, say we want to compute some [generalized fibonacci sequence](https://en.wikipedia.org/wiki/Generalizations_of_Fibonacci_numbers), given by: `f(n) = f(n - 1) + f(n - 2) + f(n - 3)`.  Here is a possible implementation:
+
+```py
+def fibonacci_bottom_up(n: int) -> int:
+    if n <= 1: return 0
+    fib_sequence = [0,0,1]
+    i = 2
+    while i <= n:
+        fib_sequence.append(fib_sequence[-1] + fib_sequence[-2] + fib_sequence[-3])
+        i += 1
+    return fib_sequence[-1]
+```
+
+It was very easy to alter the optimization method to cover this new form of sequence, and it should be clear how to implement it programatically (at least in principle).  Point (2) is somewhat remarkable, since before we weren't even considering space as an issue, but now we see that we need to keep an array whose size grows to size `n`.  It's worth realizing that this is typically what will happen when you wish to create "generic optimization techniques," you will have to make some tradeoffs.  The reason that this didn't come up before is that before we were using some *domain-specific information* to guide our optimization: we knew that we only needed the previous two values.  Generalizing this to sequences which depend on more previous values means that we will require more space to remember old calculations.
 
 ## Memoization
 

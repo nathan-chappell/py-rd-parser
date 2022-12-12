@@ -27,11 +27,15 @@ expression_grammar = Grammar(
     "AddExpr",
     {
         "simple": "x * y + z * ( x + y )",
+        **{
+            f'ugly_{i}': ' * '.join(['x']*i) for i in range(2,21,2)
+        }
+        # "ugly": ' * '.join(['x']*20)
         # "taylor sin": "",
-        "big and ugly": """x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) *
-                ( x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) +
-                    x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) ) + (
-                        ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) )""",
+        # "big and ugly": """x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) *
+        #         ( x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) +
+        #             x * y + z * ( x + y * ( z + z * x + y * z + x ) * ( z + x * y ) ) ) + (
+        #                 ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) * ( z + z * x + y * z + x ) )""",
     },
 )
 
