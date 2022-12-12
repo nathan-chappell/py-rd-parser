@@ -440,6 +440,7 @@ Here the *smaller problems* are calculating the fibonacci numbers for `n-1` and 
 1. It's time complexity is still `𝛩(n)`
 2. It's space complexity is now `𝛩(n)`
 3. It's generalizable
+4. It still requires modifying the original code
 
 To see that it's generalizable, say we want to compute some [generalized fibonacci sequence](https://en.wikipedia.org/wiki/Generalizations_of_Fibonacci_numbers), given by: `f(n) = f(n - 1) + f(n - 2) + f(n - 3)`.  Here is a possible implementation:
 
@@ -454,12 +455,144 @@ def fibonacci_bottom_up(n: int) -> int:
     return fib_sequence[-1]
 ```
 
-It was very easy to alter the optimization method to cover this new form of sequence, and it should be clear how to implement it programatically (at least in principle).  Point (2) is somewhat remarkable, since before we weren't even considering space as an issue, but now we see that we need to keep an array whose size grows to size `n`.  It's worth realizing that this is typically what will happen when you wish to create "generic optimization techniques," you will have to make some tradeoffs.  The reason that this didn't come up before is that before we were using some *domain-specific information* to guide our optimization: we knew that we only needed the previous two values.  Generalizing this to sequences which depend on more previous values means that we will require more space to remember old calculations.
+It was very easy to alter the optimization method to cover this new form of sequence, and it should be clear how to implement it programatically (at least in principle).  Point (2) is somewhat remarkable, since before we weren't even considering space as an issue, but now we see that we need to keep an array whose size grows to size `n`.  It's worth realizing that this is typically what will happen when you wish to create "generic optimization techniques," you will have to make some tradeoffs.  The reason that this didn't come up before is that before we were using some *problem-specific information* to guide our optimization: we knew that we only needed the previous two values.  Generalizing this to sequences which depend on more previous values means that we will require more space to remember old calculations.
 
 ## Memoization
 
-### `memoize.py`
+Stated simply, the basic approach in `fibonacci_bottom_up` is to cache values that have already been calculated, and use this cache to calculate new values.  We could do this far more directly with python's [`lru_cache`](https://docs.python.org/3/library/functools.html).  The documentation states:
+
+> Decorator to wrap a function with a memoizing callable that saves up to the maxsize most recent calls. It can save time when an expensive or I/O bound function is periodically called with the same arguments.
+
+Basically, it saves the result for the arguments passed, and will return the cached result if it exists.  In our code:
+
+```py
+@lru_cache
+def fibonacci_top_down(n: int) -> int:
+    return n if n in (0,1) else fibonacci_top_down(n-1) + fibonacci_top_down(n-2)
+```
+
+This will reduce the *total calls* from 21891 to 21 when calculating `fib(20)`!  Here are the new characteristics:
+
+1. It's time complexity is `O(n)` - amortized to `O(1)`
+2. It's space complexity is still `𝛩(n)`
+3. It requires no modification to the original code
+
+(3) we can consider a huge success, and we're okay with (2), but what happened in (1)?  Well, with the bottom-up approach, whenever we want to calculate `fib(20)`, we always need to recalculate `fib(19), fib(18), ...`.  In the top-down approach, once we've calculated `fib(20)`, whenever we try to calculate it again we'll get a cache hit and the result will be provided immediately.  Over time this will result in essentially constant time calculation (for example, suppose we were to calculate `fib(n)` 1000 times for values between `1 .. 30`.  Once we've calculated `fib(n)` for some `n`, all subsequent calls to `fib(m)` for `m <= n` will be instantaneous, and calls to `fib(p)` for `p > n` will only take `p - n` calculations).  This fact will not be particularly useful for us, but can important implications in practice.
+
+### Python @decorators - the crux of the top-down approach
+
+The reasons why the top-down approach works for us in this case hinges on the way decorators work in python, so let's review what they do.  The [python specification](https://docs.python.org/3/reference/compound_stmts.html#function-definitions) states (emphasis mine):
+
+> A function definition may be wrapped by one or more decorator expressions. Decorator expressions are evaluated when the function is defined, in the scope that contains the function definition. The result must be a callable, which is invoked with the function object as the only argument. **The returned value is bound to the function name instead of the function object.**
+
+So given `@expression`, `expression` is evaluated and must be a callable.  Typically this will just be the name of another function, but peruse [PEP 614](https://peps.python.org/pep-0614/) for more information on what is allowed as a decorator.  Then we finally have the thing which will "actually decorate" the target-function.  This gets called, with the function as an argument.  This means that "decorators" are really [higher order functions](https://en.wikipedia.org/wiki/Higher-order_function), that is, a decorator takes a *function as an argument and returns a function as a result.*  This is in fact what we want, since our current optimization strategy is something like:
+
+```
+1 get input
+2 if input is in the cache:
+3   return cached result
+4 else
+5   compute result
+6   cache result
+7   return result
+```
+
+So to optimize an arbitrary function, we would like to "replace" that function with one that does the cache-checking above.  What do we mean by "replace?"  This is probably the most interesting technical (i.e. non-mathematical) problems that we have to deal with.  Consider the above code once again:
+
+```py
+@lru_cache
+def fibonacci_top_down(n: int) -> int:
+    # -----WHAT GETS CALLED HERE:      vvv          OR HERE:      vvv
+    return n if n in (0,1) else fibonacci_top_down(n-1) + fibonacci_top_down(n-2)
+```
+
+What happens when the control flow reaches `fibonacci_top_down(n-1)`?  Where does the execution continue?  And why?  Well, the code **must** call a function named `fibonacci_top_down` with `n-1` as an argument.  What is this function?  It's the function returned from `lru_cache(fibonacci_top_down)`!  Recall that **The returned value is bound to the function name instead of the function object.**  This is so important, we will further emphasize it with the following incorrect usage of `lru_cache`:
+
+```py
+def fibonacci_bad_memoize(n: int) -> int:
+    return n if n in (0,1) else fibonacci_bad_memoize(n-1) + fibonacci_bad_memoize(n-2)
+
+bad_memoize = lru_cache(fibonacci_bad_memoize)
+```
+
+Now if we use `bad_memoize` to calculate `fib(20)`, we still require 21891 calls!  This means that the optimization was ineffective.  The reason why is because when the memoized function got to the part where it needs to call `fibonacci_bad_memoize(n-1)`, it looked for a function with that name, and guess which one it found?  The unoptimized version, of course!  We could adjust the code to get the same result as with the decorator:
+
+```py
+def fibonacci_bad_memoize(n: int) -> int:
+    return n if n in (0,1) else fibonacci_bad_memoize(n-1) + fibonacci_bad_memoize(n-2)
+
+fibonacci_bad_memoize = lru_cache(fibonacci_bad_memoize)
+```
+
+And this will give the same results as before.
+
+### Memoization with non-python specific features
+
+If it's not clear, the technical difficulty with our top-down memoization is to *redirect calls to the function to the memoized function.*  There is a very common language feature that enables us to do exactly that, it's called [*dynamic dispatch*](https://en.wikipedia.org/wiki/Dynamic_dispatch), commonly implemented in OOP languages with *virtual methods*.  Consider the following code:
+
+```py
+class Fibonizer:
+    def calculate(self, value):
+        return value if value in (0,1) else self.calculate(value - 1) + self.calculate(value - 2)
+
+class MemoizedFibonizer(Fibonizer):
+    def __init__(self):
+        self._calculate = lru_cache(lambda x: Fibonizer.calculate(self, x))
+    
+    def calculate(self, value):
+        return self._calculate(value)
+```
+
+Let's see if we can phrase this in plain English.  The Fibonizer implements the fibonacci sequence directly.  The MemoizedFibonizer instead will call `_calculate`.  This function is the result of applying the `lru_cache` to an anonymous function which calls the base-class implementation of `calculate`.  This works, because in the base-class implementation of `calculate`, when it recurses, it will instead call the derived-class's implementation of `calculate`, which will then check the cache (thanks to `lru_cache`).  We'll consider this a victory.  Even if the final code is somewhat ugly, it doesn't interfere with the original code and is applicable quite generally (basically, it can be applied as a decorator to a function definition, or to a virtual method in a derived class - these are very loose requirements).
+
+### memoize.py
+
+Now lets quickly look at the implementation of `memoize` we've given here:
+
+```py
+# TYPE: (Params -> CacheKey) -> ((Params -> Result) -> (Params -> Result))
+def memoize(make_key: T.Callable[Params, CacheKey]) -> T.Callable[[T.Callable[Params, Result]], T.Callable[Params, Result]]:
+    cache: T.Dict[CacheKey, T.Union[Result, Exception]] = {}
+    stats: T.DefaultDict[str, int] = defaultdict(int)
+
+    # TYPE: (Params -> Result) -> (Params -> Result)
+    def outer_wrapper(fn: T.Callable[Params, Result]) -> T.Callable[Params, Result]:
+        # TYPE: (Params -> Result)
+        @wraps(fn)
+        def wrapped(*args: Params.args, **kwargs: Params.kwargs) -> Result:
+            cache_key = make_key(*args, **kwargs)
+            if cache_key not in cache:
+                stats["cache_misses"] += 1
+                try:
+                    result = fn(*args, **kwargs)
+                    cache[cache_key] = result
+                    return result
+                except Exception as e:
+                    cache[cache_key] = e
+                    raise e
+            else:
+                stats["cache_hits"] += 1
+                cached_result = cache[cache_key]
+                if isinstance(cached_result, Exception):
+                    raise cached_result
+                else:
+                    return cached_result
+
+        setattr(wrapped, "cache", cache)
+        setattr(wrapped, "stats", stats)
+        return wrapped
+
+    return outer_wrapper
+```
+
+Main things to notice:
+
+* `memoize` is actually a *decorator factory*, that is, it creates and returns a decorator (called `outer_wrapper`), which is then applied to the decorated function (`fn`).  It checks the cache, and if the execution resulted in an exception, will re-raise the exception, and otherwise return or calculate the cached result.  
+* `make_key` is taken as input to the *decorator factory*, to provide more flexibility in how arguments should be mapped to cached input.
+* `outer_wrapper` also attaches the `cache` and `stats` dictionary to the decorated function, so they can be retrieved or manipulated later.
+
+Otherwise, nothing should be surprising here.  We keep some `stats` on cache hits and misses, just for fun.  **One important** thing I forgot to mention is this: once a function has been decorated, it will not clear it's `cache` on its own.  Keep this in mind if you get unexpected results (especially if it seems like it's "not calculating anything new", make sure you are providing reasonable keys for the cache, or clearing it before using the function on some new input).
 
 # Demonstration
 
-## Evaluation Visitor
+...

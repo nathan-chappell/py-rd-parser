@@ -40,15 +40,43 @@ def fibonacci_top_down(n: int) -> int:
     return n if n in (0,1) else fibonacci_top_down(n-1) + fibonacci_top_down(n-2)
 
 
+def fibonacci_bad_memoize(n: int) -> int:
+    total_calls['fibonacci_bad_memoize'] += 1
+    return n if n in (0,1) else fibonacci_bad_memoize(n-1) + fibonacci_bad_memoize(n-2)
+
+# bad_memoize = lru_cache(fibonacci_bad_memoize)
+fibonacci_bad_memoize = lru_cache(fibonacci_bad_memoize)
+
+class Fibonizer:
+    total_calls = 0
+    def calculate(self, value):
+        self.total_calls += 1
+        return value if value in (0,1) else self.calculate(value - 1) + self.calculate(value - 2)
+
+class MemoizedFibonizer(Fibonizer):
+    def __init__(self):
+        self._calculate = lru_cache(lambda x: Fibonizer.calculate(self, x))
+    
+    def calculate(self, value):
+        return self._calculate(value)
+
 if __name__ == '__main__':
     n = 20
+    fibonizer = Fibonizer()
+    memoized_fibonizer = MemoizedFibonizer()
     results = [
+        fibonizer.calculate(n),
+        memoized_fibonizer.calculate(n),
         fibonacci_naive(n),
         fibonacci_optimized(n),
         fibonacci_bottom_up(n),
         fibonacci_top_down(n),
+        # bad_memoize(n),
+        fibonacci_bad_memoize(n),
     ]
     print("* results *")
     pprint(results)
     print("* total_calls *")
     pprint(total_calls)
+    print(fibonizer.total_calls)
+    print(memoized_fibonizer.total_calls)
