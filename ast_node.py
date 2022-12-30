@@ -12,3 +12,8 @@ class AstNode:
     # NOTE: Open interval [start, end)
     start: int
     end: int
+    lexemes: T.List[Lexeme]
+
+    @property
+    def value(self) -> str:
+        return ' '.join([l.value for l in self.lexemes[self.start:self.end]])

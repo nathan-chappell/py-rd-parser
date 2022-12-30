@@ -59,7 +59,10 @@ fp_language_grammar = Grammar(
         ("ws", r"\s+"),
         ("right_arrow", r"->"),
         ("let", r"let"),
+        ("if", r"if"),
+        ("else", r"else"),
         ("semicolon", r";"),
+        ("comparison_op", r"<|<=|==|!=|>=|>"),
         ("assignment_op", r"="),
         ("add_op", r"\+|-"),
         ("mul_op", r"\*|/"),
@@ -75,21 +78,29 @@ fp_language_grammar = Grammar(
         ("Statements", "Statement Statements"),
         ("Statements", "Statement"),
         ("Statement", "let identifier assignment_op Expression semicolon"),
+        ("Expression", "IfElseExpression"),
         ("Expression", "Abstraction"),
         ("Expression", "Application"),
         ("Expression", "SubExpression"),
+        ("Expression", "ComparisonExpression"),
         ("Abstraction", "identifier right_arrow Expression"),
-        ("Application", "BracedExpression SubExpression"),
-        ("Application", "identifier SubExpression"),
+        ("Application", "FunctionIdentifier Args"),
+        ("FunctionIdentifier", "identifier"),
+        ("FunctionIdentifier", "BracedExpression"),
+        ("Args", "identifier"),
+        ("Args", "SubExpression"),
+        ("BracedExpression", "lbrace Expression rbrace"),
+        ("ComparisonExpression", "SubExpression comparison_op Expression"),
+        ("IfElseExpression", "if lbrace ComparisonExpression rbrace Expression else Expression"),
         ("SubExpression", "BracedExpression"),
         ("SubExpression", "AddExpr"),
-        ("BracedExpression", "lbrace Expression rbrace"),
 
-        ("AddExpr", "Application"),
+        # ("AddExpr", "Application"),
         ("AddExpr", "MulExpr add_op AddExpr"),
         ("AddExpr", "MulExpr"),
         ("MulExpr", "Factor mul_op MulExpr"),
         ("MulExpr", "Factor"),
+        ("Factor", "Application"),
         ("Factor", "lbrace AddExpr rbrace"),
         ("Factor", "identifier"),
         ("Factor", "int"),
@@ -99,11 +110,12 @@ fp_language_grammar = Grammar(
     examples={
         "application": "(x -> x + 1) 1",
         "statement": "let f = x -> x + 1; f 2",
-        "higher-order-fns": "((f -> x -> f f x) (x -> x * x)) 3",
-        # "statements": """
-        #     let Y = f_ -> (x -> f_ x x) (x -> f_ x x);
-        #     let fact_ = f -> n -> n == 0 ? 1 : n * f (n - 1);
-        #     let fact = Y fact_;
-        # """,
+        "higher-order-fns": "((f -> x -> f (f x)) (x -> x * x)) 3",
+        "if-else": "let x = 1; if (x < 0) 1 else 2",
+        "statements": """
+            let Y = f_ -> ((x -> f_ x x) (x -> f_ x x));
+            let fact_ = f -> n -> if (n == 0) 1 else n * (f (n - 1));
+            Y fact_
+        """,
     },
 )
