@@ -5,17 +5,25 @@ from memoized_recursive_descent_parser import MemoizedRecursiveDescentParser
 from regex_lexer import RegexLexer
 from util import print_node
 
+import logging
 import operator
 
+logging.basicConfig
+log = logging.getLogger(__name__)
 
 _associative_ops = {
     "+": operator.add,
     "*": operator.mul,
 }
 
+def _sub_op(l,r):
+    log.debug(f'[_sub_op] {l} - {r} = {l - r}')
+    return l - r
+
 _non_associative_ops = {
     "/": operator.truediv,
-    "-": operator.sub,
+    # "-": operator.sub,
+    "-": _sub_op,
 }
 
 
@@ -26,7 +34,7 @@ def evaluate_expression(
     node_handler: T.Optional[T.Callable[[AstNode], T.Union[int, float]]] = None,
 ) -> T.Union[int, float]:
     if len(node.children) == 1:
-        return evaluate_expression(node.children[0], get_var, node_handler=node_handler)
+        return eval_left(evaluate_expression(node.children[0], get_var, node_handler=node_handler))
     elif node.name in ("AddExpr", "MulExpr"):
         op_lex = node.children[1].lexeme
         if op_lex is None:
@@ -34,13 +42,17 @@ def evaluate_expression(
         lhs = eval_left(evaluate_expression(node.children[0], get_var, node_handler=node_handler))
         if op_lex.value in _non_associative_ops:
             next_eval_left = lambda x: _non_associative_ops[op_lex.value](lhs, x)
-            return evaluate_expression(node.children[0], get_var, next_eval_left, node_handler=node_handler)
+            rhs = '??'
+            result = evaluate_expression(node.children[2], get_var, next_eval_left, node_handler=node_handler)
         elif op_lex.value in _associative_ops:
-            return _associative_ops[op_lex.value](lhs, evaluate_expression(node.children[2], get_var, node_handler=node_handler))
+            rhs = evaluate_expression(node.children[2], get_var, node_handler=node_handler)
+            result = _associative_ops[op_lex.value](lhs, rhs)
         else:
             raise Exception(f"bad op {op_lex.value}")
+        log.debug(f'[expr] {node.value} = {lhs} {op_lex.value} {rhs} = {result}')
+        return result
     elif node.name == "Factor":
-        return evaluate_expression(node.children[1], get_var, node_handler=node_handler)
+        return eval_left(evaluate_expression(node.children[1], get_var, node_handler=node_handler))
     elif node.lexeme is not None:
         if node.lexeme.name in ("var", "identifier"):
             return get_var(node.lexeme.value)

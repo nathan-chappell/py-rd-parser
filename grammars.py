@@ -108,14 +108,20 @@ fp_language_grammar = Grammar(
     ],
     start_symbol="Program",
     examples={
-        "application": "(x -> x + 1) 1",
+        "application": "(x -> x - 1) 1",
         "statement": "let f = x -> x + 1; f 2",
         "higher-order-fns": "((f -> x -> f (f x)) (x -> x * x)) 3",
         "if-else": "let x = 1; if (x < 0) 1 else 2",
         "statements": """
-            let Y = f_ -> ((x -> f_ x x) (x -> f_ x x));
+            let Y = f_ -> ((x -> f_ (x x)) (x -> f_ (x x)));
             let fact_ = f -> n -> if (n == 0) 1 else n * (f (n - 1));
-            Y fact_
+            let fact = Y fact_;
+            fact 7
         """,
+        "statements_": """
+            let Y = f_ -> ((x -> f_ (x x)) (x -> f_ (x x)));
+            Y
+        """,
+
     },
 )
