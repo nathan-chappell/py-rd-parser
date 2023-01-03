@@ -84,6 +84,7 @@ fp_language_grammar = Grammar(
         ("Expression", "SubExpression"),
         ("Expression", "ComparisonExpression"),
         ("Abstraction", "identifier right_arrow Expression"),
+        ("Application", "FunctionIdentifier Application"),
         ("Application", "FunctionIdentifier Args"),
         ("FunctionIdentifier", "identifier"),
         ("FunctionIdentifier", "BracedExpression"),
@@ -118,10 +119,5 @@ fp_language_grammar = Grammar(
             let fact = Y fact_;
             fact 7
         """,
-        "statements_": """
-            let Y = f_ -> ((x -> f_ (x x)) (x -> f_ (x x)));
-            Y
-        """,
-
     },
 )

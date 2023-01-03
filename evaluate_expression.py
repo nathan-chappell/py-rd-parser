@@ -1,6 +1,7 @@
 import typing as T
 
 from ast_node import AstNode
+from lexeme import Lexeme
 from memoized_recursive_descent_parser import MemoizedRecursiveDescentParser
 from regex_lexer import RegexLexer
 from util import print_node
@@ -11,56 +12,60 @@ import operator
 logging.basicConfig
 log = logging.getLogger(__name__)
 
-_associative_ops = {
+_op_table = {
     "+": operator.add,
+    "-": operator.sub,
     "*": operator.mul,
-}
-
-def _sub_op(l,r):
-    log.debug(f'[_sub_op] {l} - {r} = {l - r}')
-    return l - r
-
-_non_associative_ops = {
     "/": operator.truediv,
-    # "-": operator.sub,
-    "-": _sub_op,
 }
+
+OperandList = T.List[T.Tuple[AstNode, T.Optional[str]]]
+
+
+def get_operand_sequence(node: AstNode) -> OperandList:
+    """Get the longest contiguous sequence of operands of operators of the same precedence"""
+    if node.matches_productions(
+        [("MulExpr", "Factor mul_op MulExpr"), ("AddExpr", "MulExpr add_op AddExpr")],
+    ):
+        operand = (node.children[0], T.cast(Lexeme, node.children[1].lexeme).value)
+        return [operand, *get_operand_sequence(node.children[2])]
+    elif node.matches_productions([("MulExpr", "Factor"), ("AddExpr", "MulExpr")]):
+        return [(node, None)]
+    else:
+        return []
+
+
+def _default_handler(node: AstNode):
+    raise Exception(f"[evaluate_expression] failed to handle node: {node}")
 
 
 def evaluate_expression(
     node: AstNode,
-    get_var: T.Callable[[str], float],
-    eval_left: T.Callable[[float], float] = lambda x: x,
-    node_handler: T.Optional[T.Callable[[AstNode], T.Union[int, float]]] = None,
+    node_handler: T.Callable[[AstNode], T.Union[int, float]] = _default_handler,
 ) -> T.Union[int, float]:
     if len(node.children) == 1:
-        return eval_left(evaluate_expression(node.children[0], get_var, node_handler=node_handler))
+        return evaluate_expression(node.children[0], node_handler=node_handler)
     elif node.name in ("AddExpr", "MulExpr"):
-        op_lex = node.children[1].lexeme
-        if op_lex is None:
-            raise Exception("missing op")
-        lhs = eval_left(evaluate_expression(node.children[0], get_var, node_handler=node_handler))
-        if op_lex.value in _non_associative_ops:
-            next_eval_left = lambda x: _non_associative_ops[op_lex.value](lhs, x)
-            rhs = '??'
-            result = evaluate_expression(node.children[2], get_var, next_eval_left, node_handler=node_handler)
-        elif op_lex.value in _associative_ops:
-            rhs = evaluate_expression(node.children[2], get_var, node_handler=node_handler)
-            result = _associative_ops[op_lex.value](lhs, rhs)
-        else:
-            raise Exception(f"bad op {op_lex.value}")
-        log.debug(f'[expr] {node.value} = {lhs} {op_lex.value} {rhs} = {result}')
-        return result
-    elif node.name == "Factor":
-        return eval_left(evaluate_expression(node.children[1], get_var, node_handler=node_handler))
+        # we handle left-associativity here...
+        operand_sequence = get_operand_sequence(node)
+        acc = evaluate_expression(operand_sequence[0][0], node_handler=node_handler)
+        op = operand_sequence[0][1]
+        for operand, next_op in operand_sequence[1:]:
+            if op is None:
+                raise RuntimeError(f"No op provided for {operand.value} at {node.value}")
+            rhs = evaluate_expression(operand, node_handler=node_handler)
+            acc = _op_table[op](acc, rhs)
+            op = next_op
+        return acc
+    elif node.matches_production("Factor", "lbrace AddExpr rbrace"):
+        return evaluate_expression(node.children[1], node_handler=node_handler)
     elif node.lexeme is not None:
-        if node.lexeme.name in ("var", "identifier"):
-            return get_var(node.lexeme.value)
-        elif node.lexeme.name == "int":
+        if node.lexeme.name == "int":
             return int(node.lexeme.value)
         elif node.lexeme.name == "float":
             return float(node.lexeme.value)
-        raise Exception("bad lexeme")
+        else:
+            return node_handler(node)
     elif node_handler is not None:
         return node_handler(node)
     else:
@@ -85,10 +90,11 @@ if __name__ == "__main__":
     *** Values ***
 {pformat(values)}
     *** Results ***
-evaluate_expression: {evaluate_expression(node, lambda name: values[name])}
+evaluate_expression: {evaluate_expression(node, lambda node: values[T.cast(Lexeme, node.lexeme).value])}
 eval_python:         {eval(' '.join(expression.split()), values)}
 """
         )
 
     _test_evaluate("x * y + z", {"x": 0, "y": 1, "z": 2})
+    _test_evaluate("x - y", {"x": 1, "y": 1, "z": 1})
     _test_evaluate("x - y + z", {"x": 1, "y": 1, "z": 1})
