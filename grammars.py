@@ -119,5 +119,6 @@ fp_language_grammar = Grammar(
             let fact = Y fact_;
             fact 7
         """,
+        "hfn": "(f -> x -> f x) (x -> x + 2) 2",
     },
 )

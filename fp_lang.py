@@ -42,7 +42,7 @@ class Lazy:
 class RecursionGuard(Exception):
     def __init__(self, max=1000):
         self.count = 0
-        self.max = 1000
+        self.max = max
 
     def inc(self):
         self.count += 1
@@ -100,8 +100,8 @@ def evaluate_fp_program(root_node: AstNode):
         log.debug(f"[eval_node] {node.name} {node.value}")
         log.debug(f"[eval_node] scope:\n{current_scope}")
 
-        def _force_eval(node: AstNode, scope: FpScope):
-            result = node
+        def _force_eval(_node: AstNode, scope: FpScope):
+            result = _node
             while True:
                 log.debug(f'[_force_eval] {result}')
                 if isinstance(result, Lazy):
@@ -113,14 +113,16 @@ def evaluate_fp_program(root_node: AstNode):
 
         if node.name == "AddExpr":
 
-            def handle_node(ast_node: AstNode) -> T.Union[int, float]:
-                result = _force_eval(ast_node, current_scope)
+            def handle_node(_node: AstNode, scope: T.Any) -> T.Union[int, float]:
+                result = _force_eval(_node, scope)
                 if isinstance(result, (int, float)):
                     return result
                 else:
-                    raise Exception(f"could not handle {ast_node.value}: {result}")
+                    raise Exception(f"could not handle {_node.value}: {result}")
+            
+            setattr(handle_node, 'scope', current_scope)
 
-            return Lazy(lambda: evaluate_expression(node, node_handler=handle_node))
+            return Lazy(lambda: evaluate_expression(node, node_handler=handle_node, data=current_scope))
 
         elif node.name == "ComparisonExpression":
             _op = T.cast(Lexeme, node.children[1].lexeme).value
@@ -140,39 +142,50 @@ def evaluate_fp_program(root_node: AstNode):
 
         elif node.name == "Abstraction":
 
-            def f(x):
+            if isinstance(node, AstNode):
                 variable_name = T.cast(Lexeme, node.children[0].lexeme).value
+            else:
+                variable_name = getattr(node, 'variable_name')
+            
+            def _f(x, _running_scope: FpScope):
+                log.debug(f'[f(x): {getattr(_f, "name")} {getattr(_f, "value")} {x}')
+                log.debug(f'_running_scope: {_running_scope}')
                 inner_scope = FpScope(current_scope)
-                if isinstance(x, AstNode):
-                    inner_scope.expressions[variable_name] = eval_node(x, current_scope)
+                inner_scope.expressions[variable_name] = x
+                inner_scope.expressions[variable_name] = Lazy(lambda: eval_node(Lazy.unlazy(x), _running_scope))
+                # _running_scope.expressions[variable_name] = inner_scope.expressions[variable_name]
+                log.debug(f"[Abstraction] {node.value} [{variable_name} <- {inner_scope.expressions[variable_name]}]")
+                setattr(_f, 'inner_scope', inner_scope)
+                if callable(node):
+                    return Lazy(lambda: node(x, inner_scope)) # type: ignore
                 else:
-                    inner_scope.expressions[variable_name] = x
-                log.debug(f"[Abstraction] {node.value} [{variable_name} <- {x}]")
-                return Lazy(lambda: eval_node(node.children[2], inner_scope))
+                    return Lazy(lambda: eval_node(node.children[2], inner_scope))
                 # return eval_node(node.children[2], inner_scope)
 
-            setattr(f, "name", {node.name})
-            setattr(f, "value", {node.value})
+            setattr(_f, "variable_name", variable_name)
+            setattr(_f, "name", node.name)
+            setattr(_f, "value", node.value)
 
-            return f
+            return _f
 
         elif node.name == "Application":
             application_sequence = get_application_sequence(node)
+            _running_scope = current_scope.clone()
 
             def _get_fn(node_or_fn):
                 node_or_fn = Lazy.unlazy(node_or_fn)
                 while isinstance(node_or_fn, AstNode):
-                    node_or_fn = Lazy.unlazy(eval_node(node_or_fn, current_scope))
+                    node_or_fn = Lazy.unlazy(eval_node(node_or_fn, _running_scope))
                 return node_or_fn
 
             _fn = _get_fn(application_sequence[0].children[0])
             for application in application_sequence[1:]:
                 if not callable(_fn):
                     raise Exception(f"[Application] subexpression was not callable: {node.value}")
-                _fn = _get_fn(_fn(eval_node(application.children[0], current_scope)))
+                _fn = _get_fn(_fn(eval_node(application.children[0], _running_scope), _running_scope))
 
             args = application_sequence[-1].children[1]
-            return _fn(args)
+            return _fn(args, _running_scope)
 
         elif node.name == "identifier":
             return current_scope.get(T.cast(Lexeme, node.lexeme).value)
