@@ -11,6 +11,7 @@ from lexeme import Lexeme
 from memoized_recursive_descent_parser import MemoizedRecursiveDescentParser
 from recursive_descent_parser import RecursiveDescentParser, log as rd_log
 from regex_lexer import RegexLexer
+from util import print_node
 
 logging.basicConfig(level=logging.WARN)
 log = logging.getLogger(__name__)
@@ -61,6 +62,15 @@ class FpScope:
             return self.parent.get(name)
         else:
             raise KeyError(f"{name} not found in any parent scope")
+    
+    def clone(self) -> 'FpScope':
+        _clone = FpScope(self.parent)
+        _clone.expressions = dict(self.expressions)
+        return _clone
+    
+    def __repr__(self) -> str:
+        parent_repr = ("\n" + repr(self.parent)) if self.parent is not None else ""
+        return "\n".join(f"  {item[0]} -> {type(item[1]).__name__} {item[1]}" for item in self.expressions.items()) + parent_repr
 
 
 _comparison_op_table = {
@@ -76,76 +86,41 @@ _comparison_op_table = {
 def get_application_sequence(node: AstNode) -> T.List[AstNode]:
     result = []
     while node.name == "Application":
-        result.append(node.children[0])
+        result.append(node)
+        node = node.children[1]
     return result
 
 
 def evaluate_fp_program(root_node: AstNode):
     global_scope = FpScope()
-
     recusion_guard = RecursionGuard(max=1000)
-
+    
     def eval_node(node: AstNode, current_scope: FpScope):
         recusion_guard.inc()
         log.debug(f"[eval_node] {node.name} {node.value}")
+        log.debug(f"[eval_node] scope:\n{current_scope}")
+
+        def _force_eval(node: AstNode, scope: FpScope):
+            result = node
+            while True:
+                log.debug(f'[_force_eval] {result}')
+                if isinstance(result, Lazy):
+                    result = Lazy.unlazy(result)
+                elif isinstance(result, AstNode):
+                    result = eval_node(result, scope)
+                else:
+                    return result
 
         if node.name == "AddExpr":
 
             def handle_node(ast_node: AstNode) -> T.Union[int, float]:
-                if ast_node.lexeme is not None:
-                    result = Lazy.unlazy(current_scope.get(ast_node.lexeme.value))
-                    if isinstance(result, AstNode):
-                        result = Lazy.unlazy(eval_node(result, current_scope))
-                elif ast_node.name == "Application":
-                    result = Lazy.unlazy(eval_node(ast_node, current_scope))
-
+                result = _force_eval(ast_node, current_scope)
                 if isinstance(result, (int, float)):
                     return result
                 else:
                     raise Exception(f"could not handle {ast_node.value}: {result}")
 
             return Lazy(lambda: evaluate_expression(node, node_handler=handle_node))
-
-        elif node.name == "Abstraction":
-
-            def f(x):
-                variable_name = T.cast(Lexeme, node.children[0].lexeme).value
-                inner_scope = FpScope(current_scope)
-                inner_scope.expressions[variable_name] = x
-                log.debug(f"[Abstraction] {node.value} [{variable_name} <- {x}]")
-                return Lazy(lambda: eval_node(node.children[2], inner_scope))
-
-            setattr(f, "name", {node.name})
-            setattr(f, "value", {node.value})
-
-            return f
-
-        elif node.name == "Application":
-            _fn = Lazy.unlazy(eval_node(node.children[0], current_scope))
-            if not callable(_fn):
-                raise Exception(f"[Application] subexpression was not callable: {node}")
-            _arg = Lazy(lambda: eval_node(node.children[1], current_scope))
-            return Lazy(lambda: _fn(_arg))
-
-        elif len(node.children) == 1:
-            return eval_node(node.children[0], current_scope)
-
-        elif node.name == "BracedExpression":
-            return Lazy(lambda: eval_node(node.children[1], current_scope))
-
-        elif node.matches_production("Program", "Statements Expression"):
-            eval_node(node.children[0], current_scope)
-            return eval_node(node.children[1], current_scope)
-
-        elif node.matches_production("Statements", "Statement Statements"):
-            eval_node(node.children[0], current_scope)
-            eval_node(node.children[1], current_scope)
-            return
-
-        elif node.name == "Statement":
-            identifier = T.cast(Lexeme, node.children[1].lexeme).value
-            current_scope.expressions[identifier] = eval_node(node.children[3], current_scope)
-            return
 
         elif node.name == "ComparisonExpression":
             _op = T.cast(Lexeme, node.children[1].lexeme).value
@@ -163,8 +138,64 @@ def evaluate_fp_program(root_node: AstNode):
             else:
                 return Lazy(lambda: eval_node(node.children[6], current_scope))
 
+        elif node.name == "Abstraction":
+
+            def f(x):
+                variable_name = T.cast(Lexeme, node.children[0].lexeme).value
+                inner_scope = FpScope(current_scope)
+                if isinstance(x, AstNode):
+                    inner_scope.expressions[variable_name] = eval_node(x, current_scope)
+                else:
+                    inner_scope.expressions[variable_name] = x
+                log.debug(f"[Abstraction] {node.value} [{variable_name} <- {x}]")
+                return Lazy(lambda: eval_node(node.children[2], inner_scope))
+                # return eval_node(node.children[2], inner_scope)
+
+            setattr(f, "name", {node.name})
+            setattr(f, "value", {node.value})
+
+            return f
+
+        elif node.name == "Application":
+            application_sequence = get_application_sequence(node)
+
+            def _get_fn(node_or_fn):
+                node_or_fn = Lazy.unlazy(node_or_fn)
+                while isinstance(node_or_fn, AstNode):
+                    node_or_fn = Lazy.unlazy(eval_node(node_or_fn, current_scope))
+                return node_or_fn
+
+            _fn = _get_fn(application_sequence[0].children[0])
+            for application in application_sequence[1:]:
+                if not callable(_fn):
+                    raise Exception(f"[Application] subexpression was not callable: {node.value}")
+                _fn = _get_fn(_fn(eval_node(application.children[0], current_scope)))
+
+            args = application_sequence[-1].children[1]
+            return _fn(args)
+
         elif node.name == "identifier":
             return current_scope.get(T.cast(Lexeme, node.lexeme).value)
+
+        elif node.matches_production("Program", "Statements Expression"):
+            eval_node(node.children[0], current_scope)
+            return eval_node(node.children[1], current_scope)
+
+        elif node.matches_production("Statements", "Statement Statements"):
+            eval_node(node.children[0], current_scope)
+            eval_node(node.children[1], current_scope)
+            return
+
+        elif node.name == "Statement":
+            identifier = T.cast(Lexeme, node.children[1].lexeme).value
+            current_scope.expressions[identifier] = eval_node(node.children[3], current_scope)
+            return
+
+        elif node.name == "BracedExpression":
+            return Lazy(lambda: eval_node(node.children[1], current_scope))
+
+        elif len(node.children) == 1:
+            return eval_node(node.children[0], current_scope)
 
         else:
             raise Exception(f"[eval_node] unhandled node: {node.name}")
@@ -199,6 +230,8 @@ if __name__ == "__main__":
         lexemes = list(lexer(text))
         memoized_parser = MemoizedRecursiveDescentParser(fp_language_grammar.productions)
         root_node = memoized_parser.parse(lexemes, fp_language_grammar.start_symbol, 0)
+        if args.v_rd:
+            print_node(root_node)
         result = evaluate_fp_program(root_node)
         print(f"{name}: {text}")
         pprint(result)

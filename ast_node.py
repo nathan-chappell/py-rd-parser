@@ -33,3 +33,6 @@ class AstNode:
     
     def matches_productions(self, productions: T.List[T.Tuple[str,str]]) -> bool:
         return any(self.matches_production(head, body) for head,body in productions)
+
+    def __repr__(self) -> str:
+        return f'{{{self.name} -> {", ".join([c.name for c in self.children])} | {self.value}}}'
