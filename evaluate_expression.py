@@ -90,7 +90,7 @@ if __name__ == "__main__":
     *** Values ***
 {pformat(values)}
     *** Results ***
-evaluate_expression: {evaluate_expression(node, lambda node, _: values[T.cast(Lexeme, node.lexeme).value])}
+evaluate_expression: {evaluate_expression(node, lambda node: values[T.cast(Lexeme, node.lexeme).value])}
 eval_python:         {eval(' '.join(expression.split()), values)}
 """
         )
