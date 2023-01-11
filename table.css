@@ -1,0 +1,19 @@
+table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    border: 3px solid purple;
+}
+
+th,
+td {
+    padding: 4px, 8px;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: #cacaca;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}

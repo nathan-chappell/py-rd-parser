@@ -7,33 +7,31 @@ class StringWriter:
         self.s = ""
         self._indent = 0
     
-    def _yield_args(self, *args: T.Any) -> T.Generator[str, None, None]:
+    def write(self, *args: T.Any) -> 'StringWriter':
         for arg in args:
             if arg is None:
-                yield ""
+                continue
             elif isinstance(arg, (str, int, datetime.timedelta)):
-                yield str(arg)
+                self.s += str(arg)
             elif hasattr(arg, 'compile'):
                 getattr(arg, 'compile')(self)
             else:
-                raise Exception(f"[_yield_args]: {arg}")
-    
-    def write(self, *args: T.Any) -> 'StringWriter':
-        print(self.s, args)
-        print(id(self))
-        self.s += ''.join(self._yield_args(*args))
-        print(self.s)
-        print('-'*10)
+                raise Exception(f"[write]: {arg}")
         return self
     
     def write_line(self, *args: T.Any) -> 'StringWriter':
-        return self.write(*args, "\n", '  '*self._indent)
+        return self.write(*args, "\n")
+    
+    def indent(self) -> 'StringWriter':
+        return self.write('  '*self._indent)
     
     @contextmanager
     def indented(self):
-        self._indent += 1
-        yield
-        self._indent -= 1
+        try:
+            self._indent += 1
+            yield
+        finally:
+            self._indent -= 1
     
     def __str__(self) -> str:
         return self.s

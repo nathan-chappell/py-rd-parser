@@ -74,12 +74,11 @@ class RunStats:
                         HtmlElement(
                             "tr",
                             children=[
-                                HtmlElement(
-                                    "td", children=[getattr(stats, _field_name) for _field_name in cls._table_fields]
-                                )
-                                for stats in run_stats
+                                HtmlElement("td", children=getattr(stats, _field_name))
+                                for _field_name in cls._table_fields
                             ],
                         )
+                        for stats in run_stats
                     ],
                 ),
             ],

@@ -1,4 +1,5 @@
 import typing as T
+import datetime
 from dataclasses import dataclass, field
 
 from string_writer import StringWriter
@@ -14,22 +15,19 @@ class HtmlElement:
     _void_elements = ('area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr')
 
     def compile(self, writer: StringWriter) -> StringWriter:
-        writer.write('<', self.name)
+        writer.indent().write(f'<', self.name)
         
         for k,v in self.attributes.items():
             writer.write(' ', k, '="', v, '" ')
 
-        if self.children:
+        if isinstance(self.children, (str, int, datetime.timedelta)):
+            return writer.write_line('>', self.children, '</', self.name, '>')
+        elif self.children:
             writer.write_line('>')
             with writer.indented():
-                if isinstance(self.children, str):
-                    writer.write(self.children)
-                else:
-                    writer.write(*self.children)
-            writer.write_line('<', self.name, '/>')
+                writer.write(*self.children)
+            return writer.indent().write_line(f'</', self.name, '>')
         elif self.name in self._void_elements:
-            writer.write_line(' />')
+            return writer.write_line(' />')
         else:
-            writer.write_line('><', self.name, '/>')
-
-        return writer
+            return writer.write_line('></', self.name, '>')

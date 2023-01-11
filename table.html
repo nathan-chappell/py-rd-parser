@@ -1,0 +1,464 @@
+<html>
+  <head>
+    <link rel="stylesheet"  href="./table.css"  />
+  </head>
+  <body>
+    <table>
+      <thead>
+        <tr>
+          <th>example_name</th>
+          <th>example</th>
+          <th>parser_type</th>
+          <th>total_calls</th>
+          <th>timedelta</th>
+          <th>lexeme_count</th>
+          <th>cache_misses</th>
+          <th>cache_hits</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>simple</td>
+          <td>x * y + z * ( x + y )</td>
+          <td>normal</td>
+          <td>227</td>
+          <td>0:00:00.001003</td>
+          <td>11</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_2</td>
+          <td>x * x</td>
+          <td>normal</td>
+          <td>19</td>
+          <td>0:00:00</td>
+          <td>3</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_4</td>
+          <td>x * x * x * x</td>
+          <td>normal</td>
+          <td>91</td>
+          <td>0:00:00</td>
+          <td>7</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_6</td>
+          <td>x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>379</td>
+          <td>0:00:00.001513</td>
+          <td>11</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_8</td>
+          <td>x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>1531</td>
+          <td>0:00:00.006014</td>
+          <td>15</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_10</td>
+          <td>x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>6139</td>
+          <td>0:00:00.024529</td>
+          <td>19</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_12</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>24571</td>
+          <td>0:00:00.088928</td>
+          <td>23</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_14</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>98299</td>
+          <td>0:00:00.348752</td>
+          <td>27</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_16</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>393211</td>
+          <td>0:00:01.461077</td>
+          <td>31</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_18</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>1572859</td>
+          <td>0:00:05.848999</td>
+          <td>35</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_20</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>6291451</td>
+          <td>0:00:23.979558</td>
+          <td>39</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>simple</td>
+          <td>x * y + z * ( x + y )</td>
+          <td>memoized</td>
+          <td>18</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td>18</td>
+          <td>8</td>
+        </tr>
+        <tr>
+          <td>ugly_2</td>
+          <td>x * x</td>
+          <td>memoized</td>
+          <td>6</td>
+          <td>0:00:00</td>
+          <td>3</td>
+          <td>6</td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td>ugly_4</td>
+          <td>x * x * x * x</td>
+          <td>memoized</td>
+          <td>12</td>
+          <td>0:00:00</td>
+          <td>7</td>
+          <td>12</td>
+          <td>5</td>
+        </tr>
+        <tr>
+          <td>ugly_6</td>
+          <td>x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>18</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td>18</td>
+          <td>7</td>
+        </tr>
+        <tr>
+          <td>ugly_8</td>
+          <td>x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>24</td>
+          <td>0:00:00</td>
+          <td>15</td>
+          <td>24</td>
+          <td>9</td>
+        </tr>
+        <tr>
+          <td>ugly_10</td>
+          <td>x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>30</td>
+          <td>0:00:00</td>
+          <td>19</td>
+          <td>30</td>
+          <td>11</td>
+        </tr>
+        <tr>
+          <td>ugly_12</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>36</td>
+          <td>0:00:00.001565</td>
+          <td>23</td>
+          <td>36</td>
+          <td>13</td>
+        </tr>
+        <tr>
+          <td>ugly_14</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>42</td>
+          <td>0:00:00</td>
+          <td>27</td>
+          <td>42</td>
+          <td>15</td>
+        </tr>
+        <tr>
+          <td>ugly_16</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>48</td>
+          <td>0:00:00</td>
+          <td>31</td>
+          <td>48</td>
+          <td>17</td>
+        </tr>
+        <tr>
+          <td>ugly_18</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>54</td>
+          <td>0:00:00</td>
+          <td>35</td>
+          <td>54</td>
+          <td>19</td>
+        </tr>
+        <tr>
+          <td>ugly_20</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>60</td>
+          <td>0:00:00</td>
+          <td>39</td>
+          <td>60</td>
+          <td>21</td>
+        </tr>
+        <tr>
+          <td>simple</td>
+          <td>x * y + z * ( x + y )</td>
+          <td>normal</td>
+          <td>61</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_2</td>
+          <td>x * x</td>
+          <td>normal</td>
+          <td>11</td>
+          <td>0:00:00</td>
+          <td>3</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_4</td>
+          <td>x * x * x * x</td>
+          <td>normal</td>
+          <td>19</td>
+          <td>0:00:00.001000</td>
+          <td>7</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_6</td>
+          <td>x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>27</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_8</td>
+          <td>x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>35</td>
+          <td>0:00:00</td>
+          <td>15</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_10</td>
+          <td>x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>43</td>
+          <td>0:00:00</td>
+          <td>19</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_12</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>51</td>
+          <td>0:00:00</td>
+          <td>23</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_14</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>59</td>
+          <td>0:00:00.001001</td>
+          <td>27</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_16</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>67</td>
+          <td>0:00:00</td>
+          <td>31</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_18</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>75</td>
+          <td>0:00:00.001069</td>
+          <td>35</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>ugly_20</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>normal</td>
+          <td>83</td>
+          <td>0:00:00</td>
+          <td>39</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>simple</td>
+          <td>x * y + z * ( x + y )</td>
+          <td>memoized</td>
+          <td>16</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td>16</td>
+          <td>6</td>
+        </tr>
+        <tr>
+          <td>ugly_2</td>
+          <td>x * x</td>
+          <td>memoized</td>
+          <td>5</td>
+          <td>0:00:00</td>
+          <td>3</td>
+          <td>5</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_4</td>
+          <td>x * x * x * x</td>
+          <td>memoized</td>
+          <td>9</td>
+          <td>0:00:00</td>
+          <td>7</td>
+          <td>9</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_6</td>
+          <td>x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>13</td>
+          <td>0:00:00</td>
+          <td>11</td>
+          <td>13</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_8</td>
+          <td>x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>17</td>
+          <td>0:00:00</td>
+          <td>15</td>
+          <td>17</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_10</td>
+          <td>x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>21</td>
+          <td>0:00:00.001011</td>
+          <td>19</td>
+          <td>21</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_12</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>25</td>
+          <td>0:00:00</td>
+          <td>23</td>
+          <td>25</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_14</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>29</td>
+          <td>0:00:00</td>
+          <td>27</td>
+          <td>29</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_16</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>33</td>
+          <td>0:00:00</td>
+          <td>31</td>
+          <td>33</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_18</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>37</td>
+          <td>0:00:00</td>
+          <td>35</td>
+          <td>37</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>ugly_20</td>
+          <td>x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x * x</td>
+          <td>memoized</td>
+          <td>41</td>
+          <td>0:00:00.000999</td>
+          <td>39</td>
+          <td>41</td>
+          <td>2</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>
+

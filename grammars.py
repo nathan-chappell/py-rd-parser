@@ -28,8 +28,8 @@ expression_grammar = Grammar(
     {
         "simple": "x * y + z * ( x + y )",
         **{
-            # f'ugly_{i}': ' * '.join(['x']*i) for i in range(2,21,2)
-            f'ugly_{i}': ' * '.join(['x']*i) for i in range(2,4,2)
+            f'ugly_{i}': ' * '.join(['x']*i) for i in range(2,21,2)
+            # f'ugly_{i}': ' * '.join(['x']*i) for i in range(2,4,2)
         }
         # "ugly": ' * '.join(['x']*20)
         # "taylor sin": "",
