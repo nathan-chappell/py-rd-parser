@@ -15,6 +15,13 @@ from regex_lexer import RegexLexer
 
 TParserType = T.Literal["normal", "memoized"]
 
+def _format(item: T.Any) -> str:
+    if isinstance(item, timedelta):
+        return f'{item.microseconds:9}'
+    else:
+        return str(item)
+
+
 
 @dataclass
 class RunStats:
@@ -74,7 +81,7 @@ class RunStats:
                         HtmlElement(
                             "tr",
                             children=[
-                                HtmlElement("td", children=getattr(stats, _field_name))
+                                HtmlElement("td", children=_format(getattr(stats, _field_name)))
                                 for _field_name in cls._table_fields
                             ],
                         )

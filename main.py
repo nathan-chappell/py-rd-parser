@@ -6,12 +6,29 @@ from grammars import expression_grammar, bad_expression_grammar
 from string_writer import StringWriter
 
 if __name__ == "__main__":
-    stats = [
-        *[run(bad_expression_grammar, example_name) for example_name in bad_expression_grammar.examples.keys()],
-        *[run(bad_expression_grammar, example_name, parser_type="memoized") for example_name in bad_expression_grammar.examples.keys()],
-        *[run(expression_grammar, example_name) for example_name in expression_grammar.examples.keys()],
-        *[run(expression_grammar, example_name, parser_type="memoized") for example_name in expression_grammar.examples.keys()],
-    ]
+    import argparse
+    import sys
+    import pickle
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--save-data')
+    argparser.add_argument('--load-data')
+    args = argparser.parse_args(sys.argv[1:])
+
+    if args.load_data is not None:
+        with open(args.load_data, 'rb') as f:
+            stats = pickle.load(f)
+    else:
+        stats = [
+            *[run(bad_expression_grammar, example_name) for example_name in bad_expression_grammar.examples.keys()],
+            *[run(bad_expression_grammar, example_name, parser_type="memoized") for example_name in bad_expression_grammar.examples.keys()],
+            *[run(expression_grammar, example_name) for example_name in expression_grammar.examples.keys()],
+            *[run(expression_grammar, example_name, parser_type="memoized") for example_name in expression_grammar.examples.keys()],
+        ]
+
+    if args.save_data is not None:
+        with open(args.save_data, 'wb') as f:
+            pickle.dump(stats, f)
+    
     table = RunStats.make_table(stats)
     document = HtmlElement(
         "html",
