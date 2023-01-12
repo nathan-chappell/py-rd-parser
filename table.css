@@ -1,19 +1,53 @@
+html {
+    font-family:  monospace;
+}
+
 table {
-    table-layout: fixed;
-    width: 100%;
+    table-layout: auto;
+    width: 75%;
+    margin: auto;
     border-collapse: collapse;
-    border: 3px solid purple;
+    border: 4px solid black;
+    border-radius: 4px;
 }
 
 th,
 td {
-    padding: 4px, 8px;
+    padding: 4px 8px;
+    border: 1px solid grey;
 }
 
-tbody tr:nth-child(odd) {
-    background-color: #cacaca;
+tr td:nth-child(3),  tr td:nth-child(1) {
+    overflow: hidden;
+    max-width: 180px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-tbody tr:nth-child(even) {
-    background-color: #ffffff;
+tr td:nth-child(2) {
+    font-weight: bold;
+}
+
+tr td:nth-child(4) {
+    text-align: center;
+}
+
+tr td:nth-child(1n + 5) {
+    text-align: right;
+}
+
+.Incorrect.normal td {
+    background: #e38b8b;
+}
+
+.normal td {
+    background: #4ed2db;
+}
+
+.Incorrect.memoized td {
+    background: #dbaa4e;
+}
+
+.memoized td {
+    background: #4edb7d;
 }

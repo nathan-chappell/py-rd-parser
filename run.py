@@ -15,12 +15,12 @@ from regex_lexer import RegexLexer
 
 TParserType = T.Literal["normal", "memoized"]
 
+
 def _format(item: T.Any) -> str:
     if isinstance(item, timedelta):
-        return f'{item.microseconds:9}'
+        return f"{item.seconds + item.microseconds/1000000:09.6f}"
     else:
         return str(item)
-
 
 
 @dataclass
@@ -39,6 +39,7 @@ class RunStats:
     cache_misses: T.Optional[int] = None
 
     _table_fields = [
+        "grammar_name",
         "example_name",
         "example",
         "parser_type",
@@ -55,10 +56,13 @@ class RunStats:
             children=[
                 HtmlElement(
                     "td",
-                    children=str(getattr(self, _field)),
+                    children=_format(getattr(self, _field_name)),
                 )
-                for _field in self._table_fields
+                for _field_name in self._table_fields
             ],
+            attributes={
+                "class": f"{self.grammar_name} {self.parser_type}",
+            },
         )
 
     @classmethod
@@ -78,13 +82,14 @@ class RunStats:
                 HtmlElement(
                     "tbody",
                     children=[
-                        HtmlElement(
-                            "tr",
-                            children=[
-                                HtmlElement("td", children=_format(getattr(stats, _field_name)))
-                                for _field_name in cls._table_fields
-                            ],
-                        )
+                        stats.to_tr()
+                        # HtmlElement(
+                        #     "tr",
+                        #     children=[
+                        #         HtmlElement("td", children=_format(getattr(stats, _field_name)))
+                        #         for _field_name in cls._table_fields
+                        #     ],
+                        # )
                         for stats in run_stats
                     ],
                 ),

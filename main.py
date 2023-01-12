@@ -39,7 +39,10 @@ if __name__ == "__main__":
                     HtmlElement("link", attributes={"rel": "stylesheet", "href": "./table.css"}),
                 ],
             ),
-            HtmlElement("body", children=[table]),
+            HtmlElement("body", children=[
+                table, 
+                HtmlElement("script", attributes={"src": "./script.js"}),
+            ]),
         ],
     )
     writer = StringWriter()

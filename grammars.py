@@ -42,7 +42,7 @@ expression_grammar = Grammar(
 
 bad_expression_grammar = replace(
     expression_grammar,
-    name="Expressions (bad)",
+    name="Slow-Expressions",
     productions=[
         ("AddExpr", "MulExpr add_op AddExpr"),
         ("AddExpr", "MulExpr"),
